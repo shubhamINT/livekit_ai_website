@@ -1,3 +1,43 @@
+// import { useState } from 'react'
+// import './App.css'
+// import LiveKitModal from './compotents/LiveKitModel';
+
+// function App() {
+//   const [showSupport, setShowSupport] = useState(false);
+
+//   const handleSupportClick = () => {
+//     setShowSupport(true)
+//   }
+
+//   return (
+//     <div className="app">
+//       <header className="header">
+//         <div className="logo">AutoZone</div>
+//       </header>
+
+//       <main>
+//         <section className="hero">
+//           <h1>Get the Right Parts. Right Now</h1>
+//           <p>Free Next Day Delivery on Eligible Orders</p>
+//           <div className="search-bar">
+//             <input type="text" placeholder='Enter vehicle or part number'></input>
+//             <button>Search</button>
+//           </div>
+//         </section>
+
+//         <button className="support-button" onClick={handleSupportClick}>
+//           Talk to an Agent!
+//         </button>
+//       </main>
+
+//       {showSupport && <LiveKitModal setShowSupport={setShowSupport}/>}
+//     </div>
+//   )
+// }
+
+// export default App
+
+
 'use client';
 import { useEffect, useRef } from 'react';
 import {
@@ -14,9 +54,12 @@ import '@livekit/components-styles';
 
 export default function App() {
   const tokenSource: TokenSourceConfigurable = useRef(
-    TokenSource.sandboxTokenServer('my-token-server-id'),
+  TokenSource.url('http://localhost:8000/api/token')
   ).current;
-  const tokenOptions: TokenSourceFetchOptions = { agentName: 'my-agent-name' };
+  const tokenOptions: TokenSourceFetchOptions = {
+    roomName: 'your-room', // replace with your actual room name
+    agentName: 'your-agent-name', // replace with your agent name
+  };
 
   const session = useSession(tokenSource, tokenOptions);
 

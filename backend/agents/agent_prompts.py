@@ -11,8 +11,8 @@ WEB_AGENT_PROMPT = '''
     - Use top-down approach. Don't go deep in a single path
 
     ```
-        Example :- What are the services does they provide?
-            Answer: We provide a wide range of services, including web development, mobile app development, and cloud computing....etc
+        Example :- If the user asks :- What are the services does they provide?
+            Answer should be: We provide a wide range of services, including web development, mobile app development, and cloud computing....etc
             Then ask if they wanna know moe about a specific service. Then Go explain about that service. not before that.
     ```
 

@@ -2,7 +2,6 @@ from livekit.agents import (Agent,
                             function_tool,
                             RunContext)
 import chromadb
-import asyncio
 import logging
 from openai import OpenAI
 from agents.agent_prompts import WEB_AGENT_PROMPT
@@ -17,15 +16,7 @@ class Webagent(Agent):
         )
         self.chroma_client = chromadb.PersistentClient(path="./vector_db")
         self.collection = self.chroma_client.get_or_create_collection(name="indusnet_website")
-        self.db_fetch_size = 3
-        self.openai_client = OpenAI()
-
-    @function_tool
-    async def lookup_weather(self, context: RunContext, location: str):
-        """Use this tool to look up current weather information."""
-        logger.info(f"Looking up weather for {location}")
-        await asyncio.sleep(5)
-        return "sunny with a temperature of 70 degrees."
+        self.db_fetch_size = 5
     
     @function_tool
     async def lookup_website_information(self, context: RunContext, question: str):
@@ -36,13 +27,13 @@ class Webagent(Agent):
                 n_results=self.db_fetch_size
             )
         documents = results.get("documents", [])
-        return documents
-        # response = self.openai_client.responses.create(
-        #     model="gpt-4.1",
-        #     tools=[{ "type": "web_search_preview" }],
-        #     input=question,
-        #     prompt_cache_retention = "24h",
-        # )
+        
+        # Flatten and join all text into a single clean markdown string
+        flat_documents = [item for sublist in documents for item in sublist]
+        joined = "\n\n---\n\n".join(doc.strip() for doc in flat_documents if doc.strip())
 
-        # return response.output_text
+        # Optionally strip excessive whitespace, remove duplicate consecutive lines
+        cleaned = "\n".join(line for i, line in enumerate(joined.splitlines()) 
+                            if line.strip() and (i == 0 or line.strip() != joined.splitlines()[i-1].strip()))
 
+        return cleaned
