@@ -1,99 +1,117 @@
-// import { useState } from 'react'
-// import './App.css'
-// import LiveKitModal from './compotents/LiveKitModel';
-
-// function App() {
-//   const [showSupport, setShowSupport] = useState(false);
-
-//   const handleSupportClick = () => {
-//     setShowSupport(true)
-//   }
-
-//   return (
-//     <div className="app">
-//       <header className="header">
-//         <div className="logo">AutoZone</div>
-//       </header>
-
-//       <main>
-//         <section className="hero">
-//           <h1>Get the Right Parts. Right Now</h1>
-//           <p>Free Next Day Delivery on Eligible Orders</p>
-//           <div className="search-bar">
-//             <input type="text" placeholder='Enter vehicle or part number'></input>
-//             <button>Search</button>
-//           </div>
-//         </section>
-
-//         <button className="support-button" onClick={handleSupportClick}>
-//           Talk to an Agent!
-//         </button>
-//       </main>
-
-//       {showSupport && <LiveKitModal setShowSupport={setShowSupport}/>}
-//     </div>
-//   )
-// }
-
-// export default App
-
-
-'use client';
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  ControlBar,
+  LiveKitRoom,
   RoomAudioRenderer,
-  useSession,
-  SessionProvider,
-  useAgent,
-  BarVisualizer,
+  ControlBar,
+  useTracks,
+  useTranscriptions,
+  TrackLoop,
+  ParticipantTile,
 } from '@livekit/components-react';
-import { TokenSource, TokenSourceConfigurable } from 'livekit-client';
-import type { TokenSourceFetchOptions } from 'livekit-client';
 import '@livekit/components-styles';
+import { Track } from 'livekit-client';
+
+// 1. Configuration
+const LIVEKIT_URL = 'wss://aiewebsitetest-4ewipk42.livekit.cloud'; // Replace with your actual LiveKit WebSocket URL
+const TOKEN_ENDPOINT = 'http://localhost:8000/api/getToken'; // Your local backend endpoint
 
 export default function App() {
-  const tokenSource: TokenSourceConfigurable = useRef(
-  TokenSource.url('http://localhost:8000/api/token')
-  ).current;
-  const tokenOptions: TokenSourceFetchOptions = {
-    roomName: 'your-room', // replace with your actual room name
-    agentName: 'your-agent-name', // replace with your agent name
-  };
+  const [token, setToken] = useState('');
 
-  const session = useSession(tokenSource, tokenOptions);
-
-  // Connect to session
+  // 2. Fetch the token from your backend
   useEffect(() => {
-    session.start();
-    return () => {
-      session.end();
+    const fetchToken = async () => {
+      try {
+        // We assume your backend expects a room name and participant identity
+        const response = await fetch(`${TOKEN_ENDPOINT}?room=my-room&identity=user-1`, {
+          method: 'GET',
+        });
+        const token = await response.text();
+        console.log('Token response:', token);
+        setToken(token);
+      } catch (error) {
+        console.error('Error fetching token:', error);
+      }
     };
+
+    fetchToken();
   }, []);
 
+  if (!token) {
+    return <div>Loading LiveKit...</div>;
+  }
+
+  // 3. Connect to the Room
   return (
-    <SessionProvider session={session}>
-      <div data-lk-theme="default" style={{ height: '100vh' }}>
-        {/* Your custom component with basic video agent functionality. */}
-        <MyAgentView />
-        {/* Controls for the user to start/stop audio and disconnect from the session */}
-        <ControlBar controls={{ microphone: true, camera: false, screenShare: false }} />
-        {/* The RoomAudioRenderer takes care of room-wide audio for you. */}
-        <RoomAudioRenderer />
+    <LiveKitRoom
+      video={true}
+      audio={true}
+      token={token}
+      serverUrl={LIVEKIT_URL}
+      // Use the new simplified connection logic
+      connect={true}
+      data-lk-theme="default"
+      style={{ height: '100vh', display: 'flex', flexDirection: 'column' }}
+    >
+      <div style={{ flex: 1, display: 'flex' }}>
+        {/* Video Grid Area */}
+        <div style={{ flex: 3 }}>
+          <VideoGrid />
+        </div>
+
+        {/* Transcription / Chat Area */}
+        <div style={{ flex: 1, borderLeft: '1px solid #333', background: '#111', padding: '1rem' }}>
+          <h3>Transcriptions</h3>
+          <TranscriptionView />
+        </div>
       </div>
-    </SessionProvider>
+
+      {/* Basic Controls (Mute, Video, etc.) */}
+      <ControlBar />
+      
+      {/* Renders incoming audio (essential for hearing others) */}
+      <RoomAudioRenderer />
+    </LiveKitRoom>
   );
 }
 
-function MyAgentView() {
-  const agent = useAgent();
+// 4. Component to Render Video Tiles
+function VideoGrid() {
+  const tracks = useTracks([Track.Source.Camera, Track.Source.ScreenShare]);
+
   return (
-    <div style={{ height: '350px' }}>
-      <p>Agent state: {agent.state}</p>
-      {/* Renders a visualizer for the agent's audio track */}
-      {agent.canListen && (
-        <BarVisualizer track={agent.microphoneTrack} state={agent.state} barCount={5} />
-      )}
+    <TrackLoop tracks={tracks}>
+      <ParticipantTile />
+    </TrackLoop>
+  );
+}
+
+// 5. Component to Handle Real-time Transcription
+function TranscriptionView() {
+  // The useTranscriptions hook automatically listens for transcription events
+  const transcriptionSegments = useTranscriptions();
+
+  return (
+    <div style={{ overflowY: 'auto', maxHeight: '80vh', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      {transcriptionSegments.length === 0 && <p style={{ color: '#888' }}>Waiting for speech...</p>}
+      
+      {transcriptionSegments.map((segment, index) => (
+        <div 
+          key={index} 
+          style={{ 
+            background: '#222', 
+            padding: '8px', 
+            borderRadius: '6px',
+            color: 'white'
+          }}
+        >
+          <div style={{ fontSize: '0.8rem', color: '#aaa', marginBottom: '4px' }}>
+            {segment.participant?.identity || 'Unknown'} 
+            {segment.final ? '' : ' (speaking...)'}
+          </div>
+          <div>{segment.text}</div>
+        </div>
+      ))}
     </div>
   );
 }

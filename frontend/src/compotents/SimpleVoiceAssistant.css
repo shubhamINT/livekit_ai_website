@@ -1,0 +1,56 @@
+.voice-assistant-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px;
+  height: 100%;
+}
+
+.visualizer-container {
+  width: 100%;
+  height: 140px;
+  margin: 0 auto;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #f7f7f7, #ffffff);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.control-section {
+  width: 100%;
+  margin-top: 20px;
+}
+
+.conversation {
+  padding: 20px;
+  max-height: 360px;
+  overflow-y: auto;
+  width: 100%;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 16px;
+  margin-top: 16px;
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(6px);
+}
+
+.message {
+  margin-bottom: 12px;
+}
+
+.message-agent {
+  color: #1b6ef3;
+}
+
+.message-user {
+  color: #10b981;
+}
+
+.message-text {
+  color: #1f2937;
+}
+  
