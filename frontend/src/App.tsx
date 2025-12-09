@@ -8,6 +8,7 @@ import { Loader2, AlertCircle, Mic, ArrowRight } from 'lucide-react';
 const BACKEND_URL = import.meta.env?.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
 const LIVEKIT_URL = import.meta.env?.VITE_LIVEKIT_URL || '';
 const TOKEN_ENDPOINT = `${BACKEND_URL}/api/getToken`;
+console.log("TOKEN_ENDPOINT", TOKEN_ENDPOINT);
 
 export default function App() {
   const [token, setToken] = useState<string>('');
