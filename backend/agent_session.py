@@ -44,26 +44,27 @@ async def my_agent(ctx: JobContext):
 
     session = AgentSession(
         llm=realtime.RealtimeModel(
-            model = "gpt-realtime",
-            voice="marin",
+            # model = "gpt-realtime",
+            # voice="cedar",
             turn_detection=TurnDetection(
                 type="semantic_vad",
-                eagerness="high",
+                eagerness="medium",
                 create_response=True,
                 interrupt_response=True,
+                idle_timeout_ms=30000
             ),
             modalities = ['text']
         ),
-        tts=inference.TTS(model="cartesia/sonic-3", voice="9626c31c-bec5-4cca-baa8-f8ba9e84c8bc"),
+        tts=inference.TTS(model="cartesia/sonic-3", voice="9cebb910-d4b7-4a4a-85a4-12c79137724c"),
         turn_detection=MultilingualModel(),
-        vad=silero.VAD.load(min_speech_duration=0.3, activation_threshold=0.6),
+        vad=silero.VAD.load(min_speech_duration=0.3, activation_threshold=0.7),
         preemptive_generation=True,
         use_tts_aligned_transcript=True,
     )
 
     # --- Background Audio Setup ---
     background_audio = BackgroundAudioPlayer(
-        ambient_sound=AudioConfig(BuiltinAudioClip.OFFICE_AMBIENCE, volume=0.25),
+        ambient_sound=AudioConfig(BuiltinAudioClip.OFFICE_AMBIENCE, volume=0.9),
         thinking_sound=[
             AudioConfig(BuiltinAudioClip.KEYBOARD_TYPING, volume=0.6),
         ],
@@ -91,10 +92,8 @@ async def my_agent(ctx: JobContext):
         logger.warning(f"Could not start background audio: {e}", exc_info=True)
         
     # --- INITIATING SPEECH (The Agent Speaks First) ---
-    welcome_message = "Welcome to Indus Net Technologies. I am marin. How can I help you today?"
+    welcome_message = "Welcome to Indus Net Technologies. I am Aarti. How can I help you today?"
     await session.say(text=welcome_message, allow_interruptions=True)
-
-    #await ctx.wait_until_done()
 
 if __name__ == "__main__":
     cli.run_app(server)
