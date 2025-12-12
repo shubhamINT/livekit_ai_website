@@ -17,10 +17,18 @@ from livekit.plugins.turn_detector.multilingual import MultilingualModel
 from agents.web_agent import Webagent
 from livekit.plugins.openai import realtime
 from openai.types.beta.realtime.session import TurnDetection
+import os
+
 
 logger = logging.getLogger("agent")
 load_dotenv(override=True)
-server = AgentServer()
+
+# initialize the agent
+server = AgentServer(
+    api_key=os.getenv("LIVEKIT_API_KEY"),
+    api_secret=os.getenv("LIVEKIT_API_SECRET"),
+    ws_url=os.getenv("LIVEKIT_URL"),
+)
 
 @server.rtc_session()
 async def my_agent(ctx: JobContext):

@@ -35,4 +35,4 @@ CMD ["nginx", "-g", "daemon off;"]
 # Docker build command
 # docker build -t shubhamint/ai_website_frontend_react:latest .
 # Docker run command
-# docker run -d -p 3000:80 --name ai_website_frontend shubhamint/ai_website_frontend_react:latest
+# docker run -d -p 3010:80 shubhamint/ai_website_frontend_react:latest

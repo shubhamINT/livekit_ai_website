@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 export interface ChatMessage {
   id: string;
@@ -11,6 +11,34 @@ interface ChatListProps {
   messages: ChatMessage[];
 }
 
+// --------------------------------------------------------------------------
+// Helper: Typewriter Component for Smooth Text Rendering
+// --------------------------------------------------------------------------
+const TypewriterText: React.FC<{ text: string; speed?: number }> = ({ text, speed = 10 }) => {
+  const [displayedText, setDisplayedText] = useState('');
+
+  useEffect(() => {
+    let i = 0;
+    setDisplayedText(''); // Reset on new text
+    
+    const interval = setInterval(() => {
+      if (i < text.length) {
+        setDisplayedText((prev) => prev + text.charAt(i));
+        i++;
+      } else {
+        clearInterval(interval);
+      }
+    }, speed);
+
+    return () => clearInterval(interval);
+  }, [text, speed]);
+
+  return <span>{displayedText}</span>;
+};
+
+// --------------------------------------------------------------------------
+// Main ChatList Component
+// --------------------------------------------------------------------------
 export const ChatList: React.FC<ChatListProps> = ({ messages }) => {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -22,14 +50,17 @@ export const ChatList: React.FC<ChatListProps> = ({ messages }) => {
     <div 
       className="flex-1 w-full overflow-y-auto px-4 custom-scrollbar"
       style={{ 
-        maskImage: 'linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%)',
-        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%)'
+        maskImage: 'linear-gradient(to bottom, transparent 0%, black 5%, black 85%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 5%, black 85%, transparent 100%)'
       }}
     >
-      <div className="max-w-2xl mx-auto flex flex-col pt-4 pb-32">
+      <div className="max-w-3xl mx-auto flex flex-col pt-24 pb-48 gap-6"> 
         {messages.length === 0 && (
-            <div className="text-center space-y-2 py-10 mt-10 opacity-40">
-               <p className="text-xs text-zinc-400 tracking-wider">Conversation History</p>
+            <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4 opacity-30">
+               <div className="w-12 h-1 bg-zinc-300 rounded-full" />
+               <p className="text-sm text-zinc-500 font-medium font-mono uppercase tracking-widest">
+                 System Ready
+               </p>
             </div>
         )}
 
@@ -40,32 +71,49 @@ export const ChatList: React.FC<ChatListProps> = ({ messages }) => {
           return (
             <div 
               key={msg.id} 
-              className={`flex w-full mb-6 ${isUser ? 'justify-end' : 'justify-start'}`}
+              // FORCE ALIGNMENT: User -> Right (justify-end), Agent -> Left (justify-start)
+              className={`flex w-full ${isUser ? 'justify-end' : 'justify-start'}`}
             >
               <div 
                 className={`
-                  relative max-w-[85%] px-6 py-4 text-[16px] leading-7 rounded-[24px]
-                  border shadow-sm transition-all duration-300 backdrop-blur-[2px]
+                  relative max-w-[80%] px-6 py-4 text-[15px] leading-relaxed rounded-[24px]
+                  shadow-sm transition-all duration-300 border
                   ${isInterim ? 'opacity-80 scale-[0.99]' : 'opacity-100 scale-100 animate-fade-in-up'}
                   
-                  /* --- COLOR LOGIC: User = Blue, AI = Green --- */
+                  /* --- NEW COLOR THEME --- */
+                  /* USER = BLUE | AI = GREEN (Emerald) */
                   ${isUser 
                     ? `
-                        bg-gradient-to-br from-indigo-50/90 to-white 
-                        border-indigo-100 
-                        text-indigo-950
+                        bg-gradient-to-br from-blue-500 to-blue-600
+                        text-white
+                        border-transparent
                         rounded-tr-sm
                       `
                     : `
-                        bg-gradient-to-br from-emerald-50/90 to-white 
-                        border-emerald-100 
-                        text-emerald-950
+                        bg-white
+                        text-zinc-800
+                        border-zinc-200
                         rounded-tl-sm
                       `
                   }
                 `}
               >
-                {msg.text}
+                 {/* Agent Name Tag */}
+                 {!isUser && (
+                   <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-1 opacity-80">
+                     INT. AI
+                   </div>
+                 )}
+
+                 {/* Text Content */}
+                 <div className={isUser ? 'font-medium' : 'font-normal'}>
+                    {/* Only use Typewriter for final AI messages to avoid flickering on interim updates */}
+                    {(!isUser && !isInterim) ? (
+                       <TypewriterText text={msg.text} speed={15} />
+                    ) : (
+                       msg.text
+                    )}
+                 </div>
               </div>
             </div>
           );
