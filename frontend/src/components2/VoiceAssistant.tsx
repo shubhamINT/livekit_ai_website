@@ -38,6 +38,7 @@ const VoiceAssistant: React.FC = () => {
   const [history, setHistory] = useState<ChatMessage[]>([]);
   const [isMicMuted, setIsMicMuted] = useState(false);
 
+  // Track logic
   const userTrackRef = useMemo(() => {
     if (!localParticipant || !microphoneTrack) return undefined;
     return {
@@ -94,38 +95,53 @@ const VoiceAssistant: React.FC = () => {
   return (
     <div className="fixed inset-0 w-full h-[100dvh] bg-zinc-50 text-zinc-900 overflow-hidden flex flex-col font-sans">
       
-      {/* 1. Header (Fixed Top Left) */}
+      {/* 1. Header (Minimal, Top Left) */}
       <Header status={visualizerState} />
 
-      {/* 2. Visualizer Section (Fixed height, never scrolls) */}
-      <div className="flex-none h-[35vh] min-h-[250px] w-full relative z-10 bg-gradient-to-b from-zinc-50 to-zinc-50/0">
-         <VisualizerSection 
-           state={visualizerState}
-           trackRef={activeTrack}
-         />
-      </div>
-
-      {/* 3. Chat List (Takes remaining space, scrolls independently) */}
-      <div className="flex-1 w-full relative z-0 overflow-hidden flex flex-col">
+      {/* 2. Chat List (NOW TAKES FULL HEIGHT) */}
+      <div className="flex-1 w-full relative overflow-hidden flex flex-col">
+        {/* We add a gradient mask at the bottom so text fades nicely behind the dock */}
         <ChatList messages={uiMessages} />
       </div>
 
-      {/* 4. Controls (Fixed Bottom) */}
-      <div className="fixed bottom-10 left-0 right-0 flex justify-center z-50 pointer-events-none">
-        <div className="flex items-center gap-6 bg-white/80 backdrop-blur-lg border border-white/20 px-8 py-3 rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.08)] pointer-events-auto transform hover:scale-[1.02] transition-transform duration-300">
+      {/* 3. THE DYNAMIC BOTTOM DOCK */}
+      <div className="fixed bottom-8 left-0 right-0 flex justify-center z-50 pointer-events-none">
+        <div 
+          className="
+            flex items-center gap-4 px-3 py-3 rounded-[28px] pointer-events-auto
+            bg-white/90 backdrop-blur-xl 
+            border border-white/40 shadow-[0_20px_40px_rgba(0,0,0,0.1)]
+            transition-all duration-500
+          "
+        >
            
+          {/* Left: Mic Toggle */}
           <button 
             onClick={toggleMic}
-            className={`p-4 rounded-full transition-all duration-300 shadow-sm ${isMicMuted ? 'bg-zinc-100 text-zinc-400 hover:bg-zinc-200' : 'bg-zinc-900 text-white hover:bg-zinc-800'}`}
+            className={`
+              w-12 h-12 flex items-center justify-center rounded-full transition-all duration-300 shadow-sm
+              ${isMicMuted 
+                ? 'bg-zinc-100 text-zinc-400 hover:bg-zinc-200' 
+                : 'bg-zinc-900 text-white hover:bg-zinc-800 hover:scale-105'}
+            `}
           >
             {isMicMuted ? <MicOff size={20}/> : <Mic size={20}/>}
           </button>
 
-          <div className="w-[1px] h-6 bg-zinc-200" />
+          {/* Center: The Visualizer (Divider Lines included) */}
+          <div className="h-8 w-[1px] bg-zinc-200 mx-2" />
+          
+          <VisualizerSection 
+            state={visualizerState}
+            trackRef={activeTrack}
+          />
+          
+          <div className="h-8 w-[1px] bg-zinc-200 mx-2" />
 
+          {/* Right: End Call */}
           <button 
             onClick={() => room?.disconnect()}
-            className="p-4 rounded-full bg-rose-50 text-rose-500 hover:bg-rose-100 transition-colors duration-300"
+            className="w-12 h-12 flex items-center justify-center rounded-full bg-rose-50 text-rose-500 hover:bg-rose-100 hover:scale-105 transition-all duration-300"
           >
             <PhoneOff size={20}/>
           </button>

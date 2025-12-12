@@ -22,14 +22,15 @@ export const ChatList: React.FC<ChatListProps> = ({ messages }) => {
     <div 
       className="flex-1 w-full overflow-y-auto px-4 custom-scrollbar"
       style={{ 
-        maskImage: 'linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%)',
-        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 5%, black 95%, transparent 100%)'
+        maskImage: 'linear-gradient(to bottom, transparent 0%, black 5%, black 85%, transparent 100%)',
+        WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 5%, black 85%, transparent 100%)'
       }}
     >
-      <div className="max-w-2xl mx-auto flex flex-col pt-4 pb-32">
+      <div className="max-w-2xl mx-auto flex flex-col pt-24 pb-48"> 
         {messages.length === 0 && (
-            <div className="text-center space-y-2 py-10 mt-10 opacity-40">
-               <p className="text-xs text-zinc-400 tracking-wider">Conversation History</p>
+            <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4 opacity-30">
+               <div className="w-16 h-1 bg-zinc-200 rounded-full" />
+               <p className="text-sm text-zinc-400 font-medium">Ready for conversation</p>
             </div>
         )}
 
@@ -40,27 +41,28 @@ export const ChatList: React.FC<ChatListProps> = ({ messages }) => {
           return (
             <div 
               key={msg.id} 
-              className={`flex w-full mb-6 ${isUser ? 'justify-end' : 'justify-start'}`}
+              className={`flex w-full mb-8 ${isUser ? 'justify-end' : 'justify-start'}`}
             >
               <div 
                 className={`
-                  relative max-w-[85%] px-6 py-4 text-[16px] leading-7 rounded-[24px]
-                  border shadow-sm transition-all duration-300 backdrop-blur-[2px]
+                  relative max-w-[85%] px-7 py-5 text-[16px] leading-7 rounded-[32px]
+                  border shadow-[0_2px_10px_rgba(0,0,0,0.02)] transition-all duration-300
                   ${isInterim ? 'opacity-80 scale-[0.99]' : 'opacity-100 scale-100 animate-fade-in-up'}
                   
-                  /* --- COLOR LOGIC: User = Blue, AI = Green --- */
+                  /* --- COLOR LOGIC --- */
+                  /* USER = BLUE (Indigo) | AI = RED (Rose) */
                   ${isUser 
                     ? `
-                        bg-gradient-to-br from-indigo-50/90 to-white 
-                        border-indigo-100 
+                        bg-gradient-to-tr from-indigo-50 to-white 
+                        border-indigo-100
                         text-indigo-950
-                        rounded-tr-sm
+                        rounded-tr-none
                       `
                     : `
-                        bg-gradient-to-br from-emerald-50/90 to-white 
-                        border-emerald-100 
-                        text-emerald-950
-                        rounded-tl-sm
+                        bg-gradient-to-tr from-rose-50 to-white 
+                        border-rose-100
+                        text-rose-950
+                        rounded-tl-none
                       `
                   }
                 `}
