@@ -133,3 +133,6 @@ CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 # docker build -t shubhamint/ai_website_backend_livekit:latest .
 # Docker run command
 # docker run -d -p 3011:8000 shubhamint/ai_website_backend_livekit:latest
+
+## Livekit local
+# docker run -d -p 7880:7880 -p 7881:7881 -p 7882:7882/udp -e LIVEKIT_KEYS=devkey: secret livekit/livekit-server --dev

@@ -14,14 +14,24 @@ from livekit.agents import (
 )
 from livekit.plugins import noise_cancellation, silero, openai
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
-# from agents.web_agent import Webagent
+from agents.web_agent import Webagent
 from agents.invoice_agent import InvoiceAgent
 from livekit.plugins.openai import realtime
+from livekit.plugins import cartesia
 from openai.types.beta.realtime.session import TurnDetection
 import os
+import json
 
 logger = logging.getLogger("agent")
 load_dotenv(override=True)
+
+
+# Register multiple agent
+AGENT_TYPES = {
+    "web": Webagent,
+    "invoice": InvoiceAgent,
+}
+
 
 # initialize the agent
 server = AgentServer(
@@ -32,6 +42,20 @@ server = AgentServer(
 
 @server.rtc_session()
 async def my_agent(ctx: JobContext):
+
+    # Determine agent type based on room metadata or fallback to "web"
+    agent_type = "web"
+    participant = await ctx.wait_for_participant()
+    print(participant.identity, participant.metadata)
+    if ctx.room.metadata:
+        try:
+            agent_type = json.loads(ctx.room.metadata).get("agent", "web")
+        except Exception:
+            logger.error("Error parsing agent type from metadata. Getting default agent.")
+
+    AgentClass = AGENT_TYPES.get(agent_type, Webagent)
+  
+
     session = AgentSession(
         llm=realtime.RealtimeModel(
             turn_detection=TurnDetection(
@@ -42,8 +66,11 @@ async def my_agent(ctx: JobContext):
                 idle_timeout_ms=30000
             ),
             modalities = ['text'],
+            api_key=os.getenv("OPENAI_API_KEY")
         ),
-        tts=inference.TTS(model="cartesia/sonic-3", voice="209d9a43-03eb-40d8-a7b7-51a6d54c052f"), # Anita
+        #tts=inference.TTS(model="cartesia/sonic-3", voice="209d9a43-03eb-40d8-a7b7-51a6d54c052f"), # Anita
+        tts=cartesia.TTS(model="sonic-3", voice="209d9a43-03eb-40d8-a7b7-51a6d54c052f",api_key=os.getenv("CARTESIA_API_KEY")),
+
         turn_detection=MultilingualModel(),
         vad=silero.VAD.load(min_speech_duration=0.3, activation_threshold=0.7),
         preemptive_generation=False,
@@ -59,10 +86,10 @@ async def my_agent(ctx: JobContext):
     )
                 
     # ---- START SESSION ----
-
+    agent_instance = AgentClass(room=ctx.room)
     # Start the session
     await session.start(
-        agent=InvoiceAgent(room=ctx.room),
+        agent=agent_instance,
         room=ctx.room,
         room_options=room_io.RoomOptions(
             audio_input=room_io.AudioInputOptions(
@@ -80,9 +107,8 @@ async def my_agent(ctx: JobContext):
     except Exception as e:
         logger.warning(f"Could not start background audio: {e}", exc_info=True)
         
-    # --- INITIATING SPEECH (The Agent Speaks First) ---
-    #welcome_message = "Welcome to Indus Net Technologies. I am Aarti. How can I help you today?"
-    welcome_message = "Hii, This is VYOM calling from ITC’s accounts team."
+    # --- INITIATING SPEECH (Dynamically canged based on agent) ---
+    welcome_message = agent_instance.welcome_message
     await session.say(text=welcome_message, allow_interruptions=True)
 
 if __name__ == "__main__":

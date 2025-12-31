@@ -11,3 +11,7 @@ class InvoiceAgent(Agent):
             instructions=INVOICE_PROMPT,
         )
         self.room = room 
+
+    @property
+    def welcome_message(self):
+        return ("Hii, This is VYOM calling from ITC’s accounts team.")

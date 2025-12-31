@@ -16,13 +16,12 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [agent, setAgent] = useState<'web' | 'invoice'>('web');
 
-  const connect = useCallback(async () => {
+  const connect = useCallback(async (chosenAgent: 'web' | 'invoice' = agent) => {
     setConnecting(true);
     setError(null);
     try {
       const userId = `user_${Math.floor(Math.random() * 10000)}`;
-      // const url = `${TOKEN_ENDPOINT}?name=${userId}`;
-      const url = `${TOKEN_ENDPOINT}?name=${userId}&agent=${agent}`;
+      const url = `${TOKEN_ENDPOINT}?name=${userId}&agent=${chosenAgent}`;
 
       const response = await fetch(url, { mode: 'cors' });
       if (!response.ok) {
@@ -39,15 +38,15 @@ export default function App() {
       console.error("Connection failed:", err);
       let msg = "Failed to connect to backend.";
       if (err.message && err.message.includes('Failed to fetch')) {
-         msg = `Could not reach server at ${BACKEND_URL}. Ensure your backend is running.`;
+          msg = `Could not reach server at ${BACKEND_URL}. Ensure your backend is running.`;
       } else if (err.message) {
-         msg = err.message;
+          msg = err.message;
       }
       setError(msg);
     } finally {
       setConnecting(false);
     }
-  }, []);
+  }, [agent]);
 
   if (!token) {
     return (
@@ -78,29 +77,11 @@ export default function App() {
                 <p className="text-sm font-medium leading-tight">{error}</p>
               </div>
             )}
-
-            {/* <button
-              onClick={connect}
-              disabled={connecting}
-              className="group relative w-full max-w-xs mx-auto py-4 px-8 bg-primary hover:bg-primary-hover text-white text-lg rounded-full font-semibold transition-all shadow-lg hover:shadow-primary/30 hover:-translate-y-1 flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
-            >
-              {connecting ? (
-                <>
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Connecting...</span>
-                </>
-              ) : (
-                <>
-                  <span>Start Conversation</span>
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
-                </>
-              )}
-            </button> */}
             <div className="flex flex-col gap-4 max-w-xs mx-auto">
               <button
                 onClick={() => {
                   setAgent('web');
-                  connect();
+                  connect('web');
                 }}
                 disabled={connecting}
                 className="py-4 px-8 bg-primary text-white rounded-full font-semibold shadow-lg"
@@ -111,7 +92,7 @@ export default function App() {
               <button
                 onClick={() => {
                   setAgent('invoice');
-                  connect();
+                  connect('invoice');
                 }}
                 disabled={connecting}
                 className="py-4 px-8 bg-green-600 text-white rounded-full font-semibold shadow-lg"
