@@ -57,13 +57,13 @@ export const ChatList: React.FC<ChatListProps & { compact?: boolean }> = ({ mess
 
   return (
     <div
-      className="flex-1 w-full overflow-y-auto px-4 custom-scrollbar"
-      style={{
+      className="flex-1 h-full w-full overflow-y-auto px-4 custom-scrollbar"
+      style={compact ? {} : {
         maskImage: 'linear-gradient(to bottom, transparent 0%, black 5%, black 85%, transparent 100%)',
         WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 5%, black 85%, transparent 100%)'
       }}
     >
-      <div className={`mx-auto flex flex-col gap-6 ${compact ? 'pt-4 pb-2 max-w-full' : 'max-w-3xl pt-24 pb-48'}`}>
+      <div className={`mx-auto flex flex-col gap-6 ${compact ? 'pt-4 pb-20 max-w-full' : 'max-w-3xl pt-24 pb-48'}`}>
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4 opacity-30">
             <div className="w-12 h-1 bg-zinc-300 rounded-full" />
@@ -99,7 +99,7 @@ export const ChatList: React.FC<ChatListProps & { compact?: boolean }> = ({ mess
             >
               <div
                 className={`
-                  relative max-w-[80%] px-6 py-4 text-[15px] leading-relaxed rounded-[24px]
+                  relative max-w-[85%] ${compact ? 'px-4 py-2 text-[13px]' : 'px-6 py-4 text-[15px]'} leading-relaxed rounded-[20px]
                   shadow-sm transition-all duration-300 border
                   ${isInterim ? 'opacity-80 scale-[0.99]' : 'opacity-100 scale-100 animate-fade-in-up'}
                   
@@ -127,8 +127,12 @@ export const ChatList: React.FC<ChatListProps & { compact?: boolean }> = ({ mess
           );
         })}
 
-        <div ref={bottomRef} className="h-4" />
+        <div ref={bottomRef} className={compact ? 'h-2' : 'h-4'} />
       </div>
+      {/* Bottom fade for compact mode */}
+      {compact && (
+        <div className="absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-[#0B1426] to-transparent pointer-events-none z-10" />
+      )}
     </div>
   );
 };

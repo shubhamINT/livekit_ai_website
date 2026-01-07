@@ -45,7 +45,7 @@ export const AgentCardUI: React.FC<AgentCardUIProps> = ({
     }, [messages, showChat]);
 
     return (
-        <div className={`pointer-events-auto bg-[#151f32]/95 backdrop-blur-2xl border border-[#D4AF37]/20 shadow-[0_8px_32px_rgba(0,0,0,0.4)] rounded-[24px] p-4 flex flex-col items-center gap-4 transition-all duration-300 ease-in-out ${showChat ? 'w-[90vw] md:w-[400px] h-[600px]' : 'w-[280px] h-auto'}`}>
+        <div className={`pointer-events-auto bg-[#151f32]/95 backdrop-blur-3xl border border-[#D4AF37]/30 shadow-[0_20px_50px_rgba(0,0,0,0.5),0_0_20px_rgba(212,175,55,0.1)] rounded-[32px] p-5 flex flex-col items-center gap-4 transition-all duration-500 cubic-bezier(0.16, 1, 0.3, 1) ${showChat ? 'w-[90vw] md:w-[420px] h-[650px]' : 'w-[300px] h-auto'}`}>
 
             {/* Header / Controls */}
             <div className="w-full flex justify-between items-center border-b border-white/5 pb-3">
@@ -82,7 +82,7 @@ export const AgentCardUI: React.FC<AgentCardUIProps> = ({
 
             {/* CHAT AREA (Expanded only) */}
             {showChat && (
-                <div className="flex-1 w-full overflow-hidden bg-[#0B1426]/50 rounded-xl relative border border-white/5">
+                <div className="flex-1 w-full flex flex-col min-h-0 overflow-hidden bg-[#0B1426]/50 rounded-xl relative border border-white/5">
                     <ChatList messages={messages} compact={true} />
                 </div>
             )}

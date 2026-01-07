@@ -267,7 +267,7 @@ const TransactionItem: React.FC<{
     isDebit?: boolean,
     isBill?: boolean
 }> = ({ title, amount, sub, date, icon, bg, color, isDebit, isBill }) => (
-    <div className={`flex justify-between items-center group cursor-pointer hover:bg-white/5 p-2 rounded-xl transition-colors border border-transparent hover:border-white/5 ${isBill ? 'bg-amber-500/5 border-amber-500/20' : ''}`}>
+    <div className={`flex justify-between items-center group cursor-pointer hover:bg-white/[0.04] p-2 rounded-xl transition-all duration-300 border border-transparent hover:border-white/10 hover:shadow-[0_4px_20px_rgba(0,0,0,0.2)] ${isBill ? 'bg-amber-500/8 border-amber-500/20' : ''}`}>
         <div className="flex items-center gap-3">
             <div className={`w-10 h-10 rounded-full ${bg} ${color} flex items-center justify-center flex-shrink-0`}>
                 {icon}
