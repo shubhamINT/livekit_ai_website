@@ -136,3 +136,5 @@ CMD ["supervisord", "-c", "/etc/supervisor/conf.d/supervisord.conf"]
 
 ## Livekit local
 # docker run -d -p 7880:7880 -p 7881:7881 -p 7882:7882/udp -e LIVEKIT_KEYS=devkey: secret livekit/livekit-server --dev
+
+# docker compose -f docker-compose.yml up -d

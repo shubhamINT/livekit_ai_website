@@ -4,7 +4,7 @@ from livekit.agents import (Agent,
 import chromadb
 import logging
 import json
-from agents.agent_prompts import WEB_AGENT_PROMPT
+from agents.web.web_agent_prompt import WEB_AGENT_PROMPT
 
 
 logger = logging.getLogger("agent")

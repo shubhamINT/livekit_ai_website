@@ -1,17 +1,17 @@
 from livekit.agents import (Agent)
 import logging
-from agents.invoice_agent_prompt import INVOICE_PROMPT
+from agents.banking.banking_agent_prompt import BANKING_AGENT_PROMPT
 
 logger = logging.getLogger("agent")
 
-class InvoiceAgent(Agent):
+class BankingAgent(Agent):
     def __init__(self, room) -> None:
         super().__init__(
             # Instructions for the agent
-            instructions=INVOICE_PROMPT,
+            instructions=BANKING_AGENT_PROMPT,
         )
         self.room = room 
 
     @property
     def welcome_message(self):
-        return ("Hi, This is VYOM calling from ITC’s accounts team.")
+        return ("Hi, This is VYOM your banking agent.")

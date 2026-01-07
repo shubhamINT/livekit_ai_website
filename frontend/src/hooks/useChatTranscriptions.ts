@@ -3,72 +3,91 @@ import { RoomEvent, Participant } from "livekit-client";
 import type { TranscriptionSegment } from "livekit-client";
 import { useRoomContext, useLocalParticipant } from "@livekit/components-react";
 
+// Use the same interface structure
 export interface ChatMessage {
   id: string;
-  text: string;
-  sender: "user" | "agent";
+  sender: 'user' | 'agent';
+  type: 'text' | 'flashcard'; 
+  text?: string;
+  cardData?: {
+    title: string;
+    value: string;
+  };
   isInterim?: boolean;
-  timestamp: number; // useful for sorting if needed
+  timestamp: number;
 }
 
-export function useChatTranscriptions(history: ChatMessage[] = []) {
+export function useChatTranscriptions() {
   const room = useRoomContext();
   const { localParticipant } = useLocalParticipant();
-  const [liveMessages, setLiveMessages] = useState<Map<string, ChatMessage>>(new Map());
+  const [messages, setMessages] = useState<Map<string, ChatMessage>>(new Map());
 
-  const updateSegment = useCallback(
-    (segment: TranscriptionSegment, participant?: Participant) => {
-      // 1. Safety check: If no participant (system event?), assume agent or ignore
+  // 1. Handle Text
+  const handleTranscription = useCallback(
+    (segments: TranscriptionSegment[], participant?: Participant) => {
       if (!participant) return;
-
       const senderIsAgent = participant.identity !== localParticipant?.identity;
 
-      setLiveMessages((prev) => {
+      setMessages((prev) => {
         const next = new Map(prev);
-
-        const msg: ChatMessage = {
-          id: segment.id,
-          text: segment.text,
-          sender: senderIsAgent ? "agent" : "user",
-          isInterim: !segment.final,
-          timestamp: segment.firstReceivedTime,
-        };
-
-        // 2. Logic: Always update the segment. 
-        // If it was interim and is now final, this overwrite fixes it.
-        next.set(segment.id, msg);
-
+        for (const segment of segments) {
+          next.set(segment.id, {
+            id: segment.id,
+            type: 'text', // Explicitly set type
+            text: segment.text,
+            sender: senderIsAgent ? "agent" : "user",
+            isInterim: !segment.final,
+            timestamp: segment.firstReceivedTime,
+          });
+        }
         return next;
       });
     },
     [localParticipant]
   );
 
+  // 2. Handle Flashcards
+  const handleData = useCallback(
+    (payload: Uint8Array, _participant?: Participant, _kind?: any, topic?: string) => {
+      if (topic !== "ui.flashcard") return;
+
+      const strData = new TextDecoder().decode(payload);
+      try {
+        const data = JSON.parse(strData);
+        if (data.type === 'flashcard') {
+          const id = `card-${Date.now()}`; // Unique ID
+          setMessages((prev) => {
+            const next = new Map(prev);
+            next.set(id, {
+              id: id,
+              type: 'flashcard', // Explicitly set type
+              cardData: {
+                title: data.title,
+                value: data.value
+              },
+              sender: 'agent',
+              timestamp: Date.now(),
+              isInterim: false
+            });
+            return next;
+          });
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }, 
+    []
+  );
+
   useEffect(() => {
     if (!room) return;
-
-    // 3. Event Listener with proper typing
-    const handler = (
-      segments: TranscriptionSegment[], 
-      participant?: Participant
-    ) => {
-      for (const segment of segments) {
-        updateSegment(segment, participant);
-      }
-    };
-
-    room.on(RoomEvent.TranscriptionReceived, handler);
+    room.on(RoomEvent.TranscriptionReceived, handleTranscription);
+    room.on(RoomEvent.DataReceived, handleData);
     return () => {
-      room.off(RoomEvent.TranscriptionReceived, handler);
+      room.off(RoomEvent.TranscriptionReceived, handleTranscription);
+      room.off(RoomEvent.DataReceived, handleData);
     };
-  }, [room, updateSegment]);
+  }, [room, handleTranscription, handleData]);
 
-  // 4. Merge History + Live, sorted by time (optional but recommended)
-  // We prioritize 'history' then append 'liveMessages'
-  const uiMessages = [
-    ...history, 
-    ...Array.from(liveMessages.values())
-  ].sort((a, b) => a.timestamp - b.timestamp);
-
-  return uiMessages;
+  return Array.from(messages.values()).sort((a, b) => a.timestamp - b.timestamp);
 }

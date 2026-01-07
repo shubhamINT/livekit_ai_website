@@ -1,6 +1,6 @@
 from livekit.agents import (Agent)
 import logging
-from agents.restaurant_agent_prompt import RESTAURANT_AGENT_PROMPT
+from agents.restaurant.restaurant_agent_prompt import RESTAURANT_AGENT_PROMPT
 
 logger = logging.getLogger("agent")
 

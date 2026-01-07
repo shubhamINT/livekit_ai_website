@@ -14,15 +14,20 @@ from livekit.agents import (
 )
 from livekit.plugins import noise_cancellation, silero, openai
 from livekit.plugins.turn_detector.multilingual import MultilingualModel
-from agents.web_agent import Webagent
-from agents.invoice_agent import InvoiceAgent
-from agents.restaurant_agent import RestaurantAgent
+from agents.web.web_agent import Webagent
+from agents.invoice.invoice_agent import InvoiceAgent
+from agents.restaurant.restaurant_agent import RestaurantAgent
+from agents.banking.banking_agent import BankingAgent
 from livekit.plugins.openai import realtime
+from livekit.plugins import openai
 from livekit.plugins import cartesia
 from openai.types.beta.realtime.session import TurnDetection
 import os
 import json
 import asyncio
+
+# Recording input
+# from recording.recording import start_audio_recording, record_participant_audio, start_audio_recording2
 
 logger = logging.getLogger("agent")
 load_dotenv(override=True)
@@ -32,7 +37,8 @@ load_dotenv(override=True)
 AGENT_TYPES = {
     "web": Webagent,
     "invoice": InvoiceAgent,
-    "restaurant": RestaurantAgent
+    "restaurant": RestaurantAgent,
+    "bank": BankingAgent
 }
 
 
@@ -42,6 +48,16 @@ server = AgentServer(
     api_secret=os.getenv("LIVEKIT_API_SECRET"),
     ws_url=os.getenv("LIVEKIT_URL"),
 )
+
+
+# # Helper function to handle the Egress call in background
+# async def trigger_recording(room_name, agent_type):
+#     try:
+#         info = await start_audio_recording(room_name=room_name, agent_name=agent_type)
+#         logger.info(f"Egress started successfully: {info}")
+#     except Exception as e:
+#         logger.error(f"Failed to start Egress: {e}")
+
 
 @server.rtc_session()
 async def my_agent(ctx: JobContext):
@@ -60,7 +76,7 @@ async def my_agent(ctx: JobContext):
             api_key=os.getenv("OPENAI_API_KEY")
         ),
         tts=inference.TTS(model="cartesia/sonic-3", voice="209d9a43-03eb-40d8-a7b7-51a6d54c052f"), # Anita
-        #tts=cartesia.TTS(model="sonic-3", voice="209d9a43-03eb-40d8-a7b7-51a6d54c052f",api_key=os.getenv("CARTESIA_API_KEY")),
+        # tts=cartesia.TTS(model="sonic-3", voice="209d9a43-03eb-40d8-a7b7-51a6d54c052f",api_key=os.getenv("CARTESIA_API_KEY")),
 
         turn_detection=MultilingualModel(),
         vad=silero.VAD.load(min_speech_duration=0.3, activation_threshold=0.7),
@@ -108,6 +124,10 @@ async def my_agent(ctx: JobContext):
 
     # Attach the agent to the session
     session.update_agent(agent=agent_instance)
+
+    # Start recording in a separate task
+    #asyncio.create_task(trigger_recording(ctx.room.name, agent_type))
+    # asyncio.create_task(start_audio_recording2(ctx.room.name, agent_type))
 
     # --- Background Audio Setup (in a separate task) --- 
     try:
