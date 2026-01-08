@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Header } from '../components2_bank/Header';
 import { AlertCircle, Mic } from 'lucide-react';
+import type { AgentType } from '../types/agent';
 
 // Safely access environment variables with fallback
 const BACKEND_URL = import.meta.env?.VITE_BACKEND_URL || 'http://127.0.0.1:8000';
@@ -12,7 +13,7 @@ export default function HomePage() {
     const [connecting, setConnecting] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
-    const connect = async (chosenAgent: 'web' | 'invoice' | 'restaurant' | 'bank' | 'translation') => {
+    const connect = async (chosenAgent: AgentType) => {
         setConnecting(true);
         setError(null);
         try {
@@ -112,6 +113,13 @@ export default function HomePage() {
                             className="group relative w-full max-w-xs mx-auto py-4 px-8 bg-primary hover:bg-primary-hover text-white text-lg rounded-full font-semibold transition-all shadow-lg hover:shadow-primary/30 hover:-translate-y-1 flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
                         >
                             Banking Agent
+                        </button>
+                        <button
+                            onClick={() => connect('tour')}
+                            disabled={connecting}
+                            className="group relative w-full max-w-xs mx-auto py-4 px-8 bg-primary hover:bg-primary-hover text-white text-lg rounded-full font-semibold transition-all shadow-lg hover:shadow-primary/30 hover:-translate-y-1 flex items-center justify-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed disabled:transform-none disabled:shadow-none"
+                        >
+                            Tour Agent
                         </button>
                     </div>
 

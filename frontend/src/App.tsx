@@ -4,12 +4,13 @@ import BankingPage from './pages/BankingPage';
 import { LiveKitRoom, RoomAudioRenderer, StartAudio } from '@livekit/components-react';
 import VoiceAssistant from './components2_bank/VoiceAssistant';
 import { useEffect, useState } from 'react';
+import type { AgentType } from './types/agent';
 
 // Safely access environment variables with fallback
 const LIVEKIT_URL = import.meta.env?.VITE_LIVEKIT_URL || '';
 
 // Legacy agent component wrapper (for web/invoice/restaurant agents)
-function LegacyAgentPage({ agentType }: { agentType: 'web' | 'invoice' | 'restaurant' | 'translation' }) {
+function LegacyAgentPage({ agentType }: { agentType: AgentType }) {
   const [token, setToken] = useState<string>('');
 
   useEffect(() => {
@@ -64,10 +65,10 @@ export default function App() {
     <Routes>
       <Route path="/" element={<HomePage />} />
       <Route path="/bank" element={<BankingPage />} />
+      <Route path="/tour" element={<LegacyAgentPage agentType="tour" />} />
       <Route path="/web" element={<LegacyAgentPage agentType="web" />} />
       <Route path="/invoice" element={<LegacyAgentPage agentType="invoice" />} />
       <Route path="/restaurant" element={<LegacyAgentPage agentType="restaurant" />} />
-      <Route path="/translation" element={<LegacyAgentPage agentType="translation" />} />
     </Routes>
   );
 }

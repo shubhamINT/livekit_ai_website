@@ -18,6 +18,7 @@ from agents.web.web_agent import Webagent
 from agents.invoice.invoice_agent import InvoiceAgent
 from agents.restaurant.restaurant_agent import RestaurantAgent
 from agents.banking.banking_agent import BankingAgent
+from agents.tour.tour_agent import TourAgent
 from livekit.plugins.openai import realtime
 from livekit.plugins import openai
 from livekit.plugins import cartesia
@@ -38,7 +39,8 @@ AGENT_TYPES = {
     "web": Webagent,
     "invoice": InvoiceAgent,
     "restaurant": RestaurantAgent,
-    "bank": BankingAgent
+    "bank": BankingAgent,
+    "tour": TourAgent
 }
 
 
@@ -86,9 +88,9 @@ async def my_agent(ctx: JobContext):
 
     # --- Background Audio Setup ---
     background_audio = BackgroundAudioPlayer(
-        ambient_sound=AudioConfig(BuiltinAudioClip.OFFICE_AMBIENCE, volume=0.9),
+        ambient_sound=AudioConfig(BuiltinAudioClip.OFFICE_AMBIENCE, volume=0.6),
         thinking_sound=[
-            AudioConfig(BuiltinAudioClip.KEYBOARD_TYPING, volume=0.8),
+            AudioConfig(BuiltinAudioClip.KEYBOARD_TYPING, volume=0.6),
         ],
     )
                 
