@@ -22,9 +22,9 @@ from agents.tour.tour_agent import TourAgent
 # from livekit.plugins.openai import realtime
 from livekit.plugins.openai.realtime import RealtimeModel
 from openai.types import realtime
-from livekit.plugins import openai
-from livekit.plugins import cartesia
-from livekit.plugins import gladia
+# from livekit.plugins import openai
+# from livekit.plugins import cartesia
+# from livekit.plugins import gladia
 from openai.types.beta.realtime.session import TurnDetection
 import os
 import json
@@ -68,7 +68,6 @@ server = AgentServer(
 async def my_agent(ctx: JobContext):
 
     session = AgentSession(
-        
         llm=RealtimeModel(
             input_audio_transcription = realtime.AudioTranscription(
                     model="gpt-4o-transcribe",
