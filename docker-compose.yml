@@ -1,0 +1,35 @@
+version: "3.9"
+
+name: livekit_ai_website
+
+services:
+  backend:
+    image: shubhamint/ai_website_backend_livekit:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3011:8000"
+    deploy:
+      replicas: 1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  frontend:
+    image: shubhamint/ai_website_frontend_react:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3010:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
