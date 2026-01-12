@@ -84,7 +84,13 @@ async def my_agent(ctx: JobContext):
             modalities = ['text'],
             api_key=os.getenv("OPENAI_API_KEY")
         ),
-        tts=inference.TTS(model="cartesia/sonic-3", voice="209d9a43-03eb-40d8-a7b7-51a6d54c052f"), # Anita
+        tts=inference.TTS(model="cartesia/sonic-3", 
+                          voice="47f3bbb1-e98f-4e0c-92c5-5f0325e1e206",
+                          extra_kwargs={
+                                "volume": 1,
+                                "emotion": "excited"
+                            }), # Neha
+
         # tts=cartesia.TTS(model="sonic-3", 
         #                  voice="209d9a43-03eb-40d8-a7b7-51a6d54c052f",
         #                  api_key=os.getenv("CARTESIA_API_KEY"),
@@ -99,9 +105,9 @@ async def my_agent(ctx: JobContext):
 
     # --- Background Audio Setup ---
     background_audio = BackgroundAudioPlayer(
-        ambient_sound=AudioConfig(BuiltinAudioClip.OFFICE_AMBIENCE, volume=0.6),
+        ambient_sound=AudioConfig(BuiltinAudioClip.OFFICE_AMBIENCE, volume=0.7),
         thinking_sound=[
-            AudioConfig(BuiltinAudioClip.KEYBOARD_TYPING, volume=0.6),
+            AudioConfig(BuiltinAudioClip.KEYBOARD_TYPING, volume=0.7),
         ],
     )
                 

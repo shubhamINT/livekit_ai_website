@@ -6,7 +6,7 @@ openai
 python-dotenv
 chromadb
 beautifulsoup4
-pip-system-certs # For self-signed certificates (SSL error)
+pip-system-certs # For self-signed certificates (SSL error) (GLOBAL work with pip and not UV as uv uses venv)
 fastapi[standard]
 gunicorn
 
