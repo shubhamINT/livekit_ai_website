@@ -105,9 +105,10 @@ async def my_agent(ctx: JobContext):
 
     # --- Background Audio Setup ---
     background_audio = BackgroundAudioPlayer(
-        ambient_sound=AudioConfig(BuiltinAudioClip.OFFICE_AMBIENCE, volume=1),
+        ambient_sound=AudioConfig(BuiltinAudioClip.OFFICE_AMBIENCE, volume=0.8),
         thinking_sound=[
-            AudioConfig(BuiltinAudioClip.KEYBOARD_TYPING, volume=1),
+            AudioConfig(BuiltinAudioClip.KEYBOARD_TYPING, volume=0.8),
+            AudioConfig(BuiltinAudioClip.KEYBOARD_TYPING2, volume=0.7),
         ],
     )
                 
