@@ -1,12 +1,6 @@
 #!/bin/bash
 set -e
 
-# Ensure .env exists
-if [ ! -f .env ]; then
-    echo "Error: .env file is missing."
-    exit 1
-fi
-
 echo "Starting deployment..."
 
 echo "Pulling latest code..."
