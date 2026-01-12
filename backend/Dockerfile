@@ -76,6 +76,11 @@ ENV PYTHONUNBUFFERED=1
 # Prevent Python from writing .pyc files
 ENV PYTHONDONTWRITEBYTECODE=1
 
+# # 1. Point Python's SSL module to the System Certificate Store
+# ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+# # 2. Point Requests/Certifi based libraries to the System Certificate Store
+# ENV REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+
 # Install system dependencies required for audio / webrtc / native builds
 # supervisor is used to run multiple processes
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -87,6 +92,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     libsndfile1 \
     curl \
+    && update-ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user
@@ -119,10 +125,16 @@ ENV PATH="/home/appuser/.venv/bin:$PATH"
 # --------------------------------------------------------------------
 COPY --chown=appuser:appuser pyproject.toml uv.lock ./
 
-# Install Python dependencies using uv
-# --no-dev   → skip development dependencies
-# --frozen   → enforce uv.lock, do not modify it
-RUN uv sync --no-dev --frozen
+# # Install Python dependencies using uv
+# # --no-dev   → skip development dependencies
+# # --frozen   → enforce uv.lock, do not modify it
+# RUN uv sync --no-dev --frozen
+
+# 1. Export the lockfile to a standard requirements.txt
+# 2. Install into SYSTEM python (skipping venv creation)
+#    We do this as ROOT so it goes into /usr/local/lib/...
+RUN uv export --frozen --no-dev --format requirements-txt > requirements.txt && \
+    uv pip install --system --no-cache -r requirements.txt
 
 # --------------------------------------------------------------------
 # Copy application code
@@ -130,7 +142,7 @@ RUN uv sync --no-dev --frozen
 COPY --chown=appuser:appuser . .
 
 # Download models at build time
-RUN python agent_session.py download-files
+RUN uv run agent_session.py download-files
 
 # Expose application port
 EXPOSE 8000

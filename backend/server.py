@@ -5,11 +5,15 @@ import json
 from typing import Optional 
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, HTTPException, Body
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import PlainTextResponse, JSONResponse
 from livekit import api as lk_api
 from livekit.api import LiveKitAPI, ListRoomsRequest
+from pydantic import BaseModel
+
+# Import the outbound call function
+from outbound.outbound_call import make_call
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +34,9 @@ app.add_middleware(
 ## The agent currently supported
 ALLOWED_AGENTS = {"web", "invoice", "restaurant", "bank", "tour"}
 
+class OutboundCallRequest(BaseModel):
+    phone_number: str
+    agent_type: str = "invoice"
 
 async def get_rooms() -> list[str]:
     logger.info("Starting get_rooms")
@@ -96,6 +103,20 @@ async def check_password(password: str = Query("guest")):
         return "ok"
     else:
         return "Unauthorized"
+
+@app.post("/api/makeCall")
+async def trigger_outbound_call(request: OutboundCallRequest):
+    logger.info(f"Received outbound call request: {request}")
+    
+    if request.agent_type not in ALLOWED_AGENTS:
+        raise HTTPException(status_code=400, detail=f"Invalid agent type: {request.agent_type}. Allowed: {ALLOWED_AGENTS}")
+        
+    try:
+        await make_call(request.phone_number, request.agent_type)
+        return JSONResponse(content={"status": "success", "message": f"Verified call initiation for {request.phone_number} with agent {request.agent_type}"})
+    except Exception as e:
+        logger.error(f"Failed to initiate outbound call: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/health", response_class=PlainTextResponse)
 async def health():
