@@ -102,14 +102,26 @@ async def my_agent(ctx: JobContext):
         use_tts_aligned_transcript=True,
     )
 
-    # --- Background Audio Setup ---
+    # # --- Background Audio Setup ---
+    # background_audio = BackgroundAudioPlayer(
+    #     ambient_sound=[AudioConfig(BuiltinAudioClip.OFFICE_AMBIENCE, volume=1),
+    #                    AudioConfig(BuiltinAudioClip.CROWDED_ROOM, volume=1)],
+    #     thinking_sound=[
+    #         AudioConfig(BuiltinAudioClip.KEYBOARD_TYPING, volume=0.8),
+    #         AudioConfig(BuiltinAudioClip.KEYBOARD_TYPING2, volume=0.7),
+    #     ],
+    # )
+
+    #--- Custom Background Audio Setup ---
     background_audio = BackgroundAudioPlayer(
-        ambient_sound=[AudioConfig(BuiltinAudioClip.OFFICE_AMBIENCE, volume=1),
-                       AudioConfig(BuiltinAudioClip.CROWDED_ROOM, volume=1)],
-        thinking_sound=[
-            AudioConfig(BuiltinAudioClip.KEYBOARD_TYPING, volume=0.8),
-            AudioConfig(BuiltinAudioClip.KEYBOARD_TYPING2, volume=0.7),
-        ],
+        ambient_sound=AudioConfig(
+            os.path.join(os.path.dirname(__file__), "bg_audio", "office-ambience.wav"),
+            volume=0.4
+        ),
+        thinking_sound=AudioConfig(
+            os.path.join(os.path.dirname(__file__), "bg_audio", "typing-sound.wav"),
+            volume=0.5
+        ),
     )
                 
     # ---- START SESSION ----
@@ -149,16 +161,17 @@ async def my_agent(ctx: JobContext):
     #asyncio.create_task(trigger_recording(ctx.room.name, agent_type))
     # asyncio.create_task(start_audio_recording2(ctx.room.name, agent_type))
 
-    # --- INITIATING SPEECH (Dynamically canged based on agent) ---
+    # --- Background Audio Start (before welcome message) ---
+    try:
+        asyncio.create_task(background_audio.start(room=ctx.room, agent_session=session))
+        logger.info("Background audio task started")
+    except Exception as e:
+        logger.warning(f"Could not start background audio: {e}", exc_info=True)
+
+    # --- INITIATING SPEECH (Dynamically changed based on agent) ---
     welcome_message = agent_instance.welcome_message
     await session.say(text=welcome_message, allow_interruptions=True)
 
-    # --- Background Audio Setup (in a separate task) --- 
-    try:
-        asyncio.create_task(background_audio.start(room=ctx.room, agent_session=session))
-        logger.info("Background audio started")
-    except Exception as e:
-        logger.warning(f"Could not start background audio: {e}", exc_info=True)
         
     
 
