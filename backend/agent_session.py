@@ -105,7 +105,7 @@ async def my_agent(ctx: JobContext):
 
     # --- Background Audio Setup ---
     background_audio = BackgroundAudioPlayer(
-        ambient_sound=AudioConfig(BuiltinAudioClip.OFFICE_AMBIENCE, volume=0.8),
+        ambient_sound=AudioConfig(BuiltinAudioClip.OFFICE_AMBIENCE, volume=1),
         thinking_sound=[
             AudioConfig(BuiltinAudioClip.KEYBOARD_TYPING, volume=0.8),
             AudioConfig(BuiltinAudioClip.KEYBOARD_TYPING2, volume=0.7),
@@ -158,7 +158,7 @@ async def my_agent(ctx: JobContext):
         
     # --- INITIATING SPEECH (Dynamically canged based on agent) ---
     welcome_message = agent_instance.welcome_message
-    await session.say(text=welcome_message, allow_interruptions=True)
+    await session.say(text=welcome_message, allow_interruptions=False)
 
 if __name__ == "__main__":
     cli.run_app(server)

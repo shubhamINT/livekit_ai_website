@@ -46,7 +46,8 @@ async def make_call(phone_number: str, agent_type: str = "invoice"):
                 sip_trunk_id=outbound_trunk_id,
                 sip_call_to=phone_number,
                 participant_identity="phone_user",
-                participant_metadata=metadata
+                participant_metadata=metadata,
+                krisp_enabled=True
             )
         )
         logger.info(f"Created SIP participant: {sip_participant}")
