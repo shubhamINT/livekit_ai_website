@@ -79,7 +79,7 @@ async def my_agent(ctx: JobContext):
                 eagerness="auto",
                 create_response=True,
                 interrupt_response=True,
-                idle_timeout_ms=30000
+                threshold=0.7
             ),
             modalities = ['text'],
             api_key=os.getenv("OPENAI_API_KEY")
@@ -97,8 +97,8 @@ async def my_agent(ctx: JobContext):
         #                  emotion="happy",
         #                  volume=1.2),
 
-        turn_detection=MultilingualModel(),
-        vad=silero.VAD.load(min_speech_duration=0.3, activation_threshold=0.7),
+        # turn_detection=MultilingualModel(),
+        #vad=silero.VAD.load(min_speech_duration=0.3, activation_threshold=0.7),
         preemptive_generation=False,
         use_tts_aligned_transcript=True,
     )
