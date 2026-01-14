@@ -71,12 +71,16 @@ async def my_agent(ctx: JobContext):
         llm=RealtimeModel(
             input_audio_transcription = realtime.AudioTranscription(
                     model="gpt-4o-transcribe",
-                    prompt="This is a multilingual conversation between a customer and an agent. Transcribe accurately in the language being spoken."
+                    prompt=(
+                        "The speaker is multilingual and switches between different languages dynamically. "
+                        "Do not force any specific language for transcription. "
+                        "Transcribe exactly what is said, preserving the original words and spelling of the language spoken."
+                    )
                 ),
             input_audio_noise_reduction = "near_field",
             turn_detection=TurnDetection(
                 type="semantic_vad",
-                eagerness="auto",
+                eagerness="low",
                 create_response=True,
                 interrupt_response=True,
                 threshold=0.5
@@ -115,11 +119,11 @@ async def my_agent(ctx: JobContext):
     #--- Custom Background Audio Setup ---
     background_audio = BackgroundAudioPlayer(
         ambient_sound=AudioConfig(
-            os.path.join(os.path.dirname(__file__), "bg_audio", "office-ambience.wav"),
+            os.path.join(os.path.dirname(__file__), "bg_audio", "office-ambience_48k.wav"),
             volume=0.4
         ),
         thinking_sound=AudioConfig(
-            os.path.join(os.path.dirname(__file__), "bg_audio", "typing-sound.wav"),
+            os.path.join(os.path.dirname(__file__), "bg_audio", "typing-sound_48k.wav"),
             volume=0.5
         ),
     )
