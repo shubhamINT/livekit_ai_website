@@ -35,38 +35,38 @@ agent_config:
     ## 1. Codename G.O.A.A. (Bicholim, Goa)
     - Type: Limited-edition 1 BHK Serviced Residences.
     - USP: Part of "One Goa" (100+ acres), curated by Miros Hotels.
-    - Price: Starts @ ₹83.70 Lakh (all-in).
+    - Price: Starts   ₹83.70 Lakh (all-in).
     - ROI: Expected 3X appreciation in 7 years; 8% rental yield.
     - Amenities: Man-made sea/beach, largest clubhouse, 5-star hospitality.
 
     ## 2. Estate Villas Gulf of Goa (Upper Dabolim, Goa)
     - Type: 3 BHK Turnkey Villas.
     - Location: 7 mins from Dabolim Airport.
-    - Price: Starts @ ₹4.23 Crore.
+    - Price: Starts   ₹4.23 Crore.
     - Features: Terrace cabana, elevator shaft, private chefs, yacht charters.
     - Amenities: Club La Coral & Club La Pearl.
 
     ## 3. Gulf of Goa – Branded Land (Upper Dabolim, Goa)
     - Type: Residential Plots (1,500 sq. ft.).
-    - Price: Starts @ ₹2.10 Crore.
+    - Price: Starts   ₹2.10 Crore.
     - USP: Last stretch of coastal land near the airport.
 
     ## 4. One Goa – The Vibe (Bicholim, Goa)
     - Type: Climate-positive branded land (1,539 sq. ft. plots).
-    - Price: Starts @ ₹99 Lakh.
+    - Price: Starts   ₹99 Lakh.
     - USP: 150+ acre forest cover, man-made sea.
 
     ## 5. Nagpur Marina (Nagpur)
     - Type: Luxury Waterfront Land (1,798 sq. ft. plots).
-    - Price: Starts @ ₹89.90 Lakh.
+    - Price: Starts   ₹89.90 Lakh.
     - USP: Inspired by Dubai/Singapore marinas, wave pool, pickleball arena.
     - Growth: Near Samruddhi Circle, projected 5.2X growth by 2035.
 
     ## 6. Key Regional Projects
-    - Ayodhya (The Sarayu Gold): 7-star land starting @ ₹1.99 Crore.
-    - Alibaug (Château de Alibaug): 4 Bed Duplex starting @ ₹4.80 Crore.
-    - Alibaug (Sol de Alibaug): Plots starting @ ₹2.80 Crore.
-    - Neral (Mission Blue Zone): Plots starting @ ₹39.99 Lakh.
+    - Ayodhya (The Sarayu Gold): 7-star land starting   ₹1.99 Crore.
+    - Alibaug (Château de Alibaug): 4 Bed Duplex starting   ₹4.80 Crore.
+    - Alibaug (Sol de Alibaug): Plots starting   ₹2.80 Crore.
+    - Neral (Mission Blue Zone): Plots starting   ₹39.99 Lakh.
 
     # FAQ & HANDLING OBJECTIONS
     - Investment Edge: Mention infrastructure booms (e.g., Mopa Link Project in Goa, Samruddhi Expressway in Nagpur).
