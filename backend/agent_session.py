@@ -19,6 +19,7 @@ from agents.invoice.invoice_agent import InvoiceAgent
 from agents.restaurant.restaurant_agent import RestaurantAgent
 from agents.banking.banking_agent import BankingAgent
 from agents.tour.tour_agent import TourAgent
+from agents.realestate.realestate_agent import RealestateAgent
 # from livekit.plugins.openai import realtime
 from livekit.plugins.openai.realtime import RealtimeModel
 from openai.types import realtime
@@ -43,7 +44,8 @@ AGENT_TYPES = {
     "invoice": InvoiceAgent,
     "restaurant": RestaurantAgent,
     "bank": BankingAgent,
-    "tour": TourAgent
+    "tour": TourAgent,
+    "realestate": RealestateAgent
 }
 
 

@@ -5,7 +5,7 @@ from agents.shared.tts_humanification_framework import TTS_HUMANIFICATION_FRAMEW
 
 logger = logging.getLogger("agent")
 
-class RestaurantAgent(Agent):
+class RealestateAgent(Agent):
     def __init__(self, room) -> None:
         super().__init__(
             # Instructions for the agent
