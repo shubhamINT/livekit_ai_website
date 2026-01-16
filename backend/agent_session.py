@@ -24,7 +24,7 @@ from agents.realestate.realestate_agent import RealestateAgent
 from livekit.plugins.openai.realtime import RealtimeModel
 from openai.types import realtime
 # from livekit.plugins import openai
-# from livekit.plugins import cartesia
+from livekit.plugins import cartesia
 # from livekit.plugins import gladia
 from openai.types.beta.realtime.session import TurnDetection
 import os
