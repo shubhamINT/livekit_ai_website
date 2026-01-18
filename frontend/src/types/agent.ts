@@ -1,1 +1,1 @@
-export type AgentType = 'web' | 'invoice' | 'restaurant' | 'bank' | 'tour';
+export type AgentType = 'web' | 'invoice' | 'restaurant' | 'bank' | 'tour' | 'realestate';

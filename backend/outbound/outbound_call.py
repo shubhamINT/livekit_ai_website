@@ -7,13 +7,14 @@ from dotenv import load_dotenv
 from livekit import api
 import random
 
-load_dotenv()
+load_dotenv(override=True)
 
 logger = logging.getLogger("make-call")
 logger.setLevel(logging.INFO)
 
 room_name = "outbound-call"
 outbound_trunk_id = os.getenv("SIP_OUTBOUND_TRUNK_ID_TWILIO")
+# outbound_trunk_id = os.getenv("SIP_OUTBOUND_TRUNK_ID_EXOTEL")
 
 async def make_call(phone_number: str, agent_type: str = "invoice"):
     """Create a dispatch and add a SIP participant to call the phone number"""
@@ -24,7 +25,7 @@ async def make_call(phone_number: str, agent_type: str = "invoice"):
     
     metadata = json.dumps({"agent": agent_type, "phone": phone_number})
     
-    logger.info(f"Creating dispatch for agent {agent_type} in room {unique_room_name}")
+    logger.info(f"Creating dispatch for agent {agent_type} in room {unique_room_name} trunk id {outbound_trunk_id}")
     dispatch = await lkapi.agent_dispatch.create_dispatch(
         api.CreateAgentDispatchRequest(
             agent_name=agent_type, room=unique_room_name, metadata=metadata

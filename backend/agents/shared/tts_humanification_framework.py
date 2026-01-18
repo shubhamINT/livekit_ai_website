@@ -124,6 +124,7 @@ humanization:
   markers: ["So...", "Alright,", "Well,", "Actually,"]
   rhythm: "Vary sentence lengths. 20% Short, 50% Medium, 30% Long."
   unpredictability: "NEVER use the same emotion tag twice in a row. Vary speed/volume values."
+  usage: "Use this module to make your agent sound completely human-like."
 
 # ═══════════════════════════════════════════════════════════════════════════
 # 📋 RULE 4: QUALITY CHECKLIST (SELF-VALIDATE BEFORE OUTPUT)

@@ -156,6 +156,14 @@ export default function HomePage() {
                             onMobileClick={handleMobileClick}
                             disabled={connecting}
                         />
+                        <AgentButton
+                            label="Real Estate Agent"
+                            agentType="realestate"
+                            onWebCall={handleWebCall}
+                            onOutboundCall={handleOutboundCall}
+                            onMobileClick={handleMobileClick}
+                            disabled={connecting}
+                        />
                     </div>
 
                     <div className="pt-8 flex justify-center gap-6 text-sm text-text-muted opacity-70">

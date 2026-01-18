@@ -1,0 +1,11 @@
+{
+    "trunk": {
+        "name": "sip_twilio",
+        "address": "indopstwilio.pstn.twilio.com",
+        "numbers": [
+            "+16506435672"
+        ],
+        "authUsername": "ind.ops@intglobal.com",
+        "authPassword": "Ind@ops@123!@#"
+    }
+}

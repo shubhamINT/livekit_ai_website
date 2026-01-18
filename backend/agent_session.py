@@ -19,11 +19,12 @@ from agents.invoice.invoice_agent import InvoiceAgent
 from agents.restaurant.restaurant_agent import RestaurantAgent
 from agents.banking.banking_agent import BankingAgent
 from agents.tour.tour_agent import TourAgent
+from agents.realestate.realestate_agent import RealestateAgent
 # from livekit.plugins.openai import realtime
 from livekit.plugins.openai.realtime import RealtimeModel
 from openai.types import realtime
 # from livekit.plugins import openai
-# from livekit.plugins import cartesia
+from livekit.plugins import cartesia
 # from livekit.plugins import gladia
 from openai.types.beta.realtime.session import TurnDetection
 import os
@@ -43,7 +44,8 @@ AGENT_TYPES = {
     "invoice": InvoiceAgent,
     "restaurant": RestaurantAgent,
     "bank": BankingAgent,
-    "tour": TourAgent
+    "tour": TourAgent,
+    "realestate": RealestateAgent
 }
 
 
@@ -79,11 +81,12 @@ async def my_agent(ctx: JobContext):
                 ),
             input_audio_noise_reduction = "near_field",
             turn_detection=TurnDetection(
-                type="semantic_vad",
-                eagerness="low",
+                type="server_vad",
+                threshold=0.5,
+                prefix_padding_ms=300,
+                silence_duration_ms=500,
                 create_response=True,
                 interrupt_response=True,
-                threshold=0.5
             ),
             modalities = ['text'],
             api_key=os.getenv("OPENAI_API_KEY")
