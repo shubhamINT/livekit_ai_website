@@ -175,6 +175,15 @@ export default function HomePage() {
                             onMobileClick={handleMobileClick}
                             disabled={connecting}
                         />
+                    
+                    <AgentButton
+                            label="Distributor Agent"
+                            agentType="distributor"
+                            onWebCall={handleWebCall}
+                            onOutboundCall={handleOutboundCall}
+                            onMobileClick={handleMobileClick}
+                            disabled={connecting}
+                    />
                     </div>
 
                     <div className="pt-8 flex justify-center gap-6 text-sm text-text-muted opacity-70">
@@ -191,7 +200,7 @@ export default function HomePage() {
                 onClose={() => setOutboundModalOpen(false)}
                 agentType={selectedAgent}
             />
-
+            
             <AgentInteractionModal
                 isOpen={interactionModalOpen}
                 onClose={() => setInteractionModalOpen(false)}

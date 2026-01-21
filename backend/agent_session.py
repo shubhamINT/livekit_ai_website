@@ -20,6 +20,7 @@ from agents.restaurant.restaurant_agent import RestaurantAgent
 from agents.banking.banking_agent import BankingAgent
 from agents.tour.tour_agent import TourAgent
 from agents.realestate.realestate_agent import RealestateAgent
+from agents.distributor.distributor_agent import DistributorAgent
 # from livekit.plugins.openai import realtime
 from livekit.plugins.openai.realtime import RealtimeModel
 from openai.types import realtime
@@ -46,7 +47,8 @@ AGENT_TYPES = {
     "restaurant": RestaurantAgent,
     "bank": BankingAgent,
     "tour": TourAgent,
-    "realestate": RealestateAgent
+    "realestate": RealestateAgent,
+    "distributor": DistributorAgent,
 }
 
 
@@ -175,6 +177,13 @@ async def my_agent(ctx: JobContext):
             if mapped_agent:
                 agent_type = mapped_agent
                 logger.info(f"Using mapped agent {agent_type} for {called_number}")
+
+    else:
+        # Web call
+        try:
+            agent_type = json.loads(participant.metadata).get("agent", "web")
+        except Exception:
+            logger.error("Error parsing agent type from metadata. Getting default agent.")
 
 
         # called_number =  participant.attributes.get("sip.trunkPhoneNumber")

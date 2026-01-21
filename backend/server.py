@@ -33,7 +33,7 @@ app.add_middleware(
 )
 
 ## The agent currently supported
-ALLOWED_AGENTS = {"web", "invoice", "restaurant", "bank", "tour", "realestate"}
+ALLOWED_AGENTS = {"web", "invoice", "restaurant", "bank", "tour", "realestate","distributor"}
 
 async def get_rooms() -> list[str]:
     logger.info("Starting get_rooms")

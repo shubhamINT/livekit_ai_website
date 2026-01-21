@@ -93,6 +93,7 @@ export default function App() {
       <Route path="/web" element={<LegacyAgentPage agentType="web" />} />
       <Route path="/restaurant" element={<LegacyAgentPage agentType="restaurant" />} />
       <Route path="/realestate" element={<LegacyAgentPage agentType="realestate" />} />
+      <Route path="/distributor" element={<LegacyAgentPage agentType="distributor" />} />
     </Routes>
   );
 }
