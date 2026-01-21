@@ -176,6 +176,15 @@ export default function HomePage() {
                             disabled={connecting}
                         />
                     </div>
+                    <AgentButton
+                            label="Distributor Agent"
+                            agentType="distributor"
+                            onWebCall={handleWebCall}
+                            onOutboundCall={handleOutboundCall}
+                            onMobileClick={handleMobileClick}
+                            disabled={connecting}
+                        />
+                    </div>
 
                     <div className="pt-8 flex justify-center gap-6 text-sm text-text-muted opacity-70">
                         <span className="flex items-center gap-1">Secure Connection</span>
