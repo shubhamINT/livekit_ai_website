@@ -176,6 +176,13 @@ async def my_agent(ctx: JobContext):
                 agent_type = mapped_agent
                 logger.info(f"Using mapped agent {agent_type} for {called_number}")
 
+    else:
+        # Web call
+        try:
+            agent_type = json.loads(participant.metadata).get("agent", "web")
+        except Exception:
+            logger.error("Error parsing agent type from metadata. Getting default agent.")
+
 
         # called_number =  participant.attributes.get("sip.trunkPhoneNumber")
         # logger.info(f"Called number: {called_number}")
