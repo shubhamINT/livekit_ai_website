@@ -1,7 +1,7 @@
 DISTRIBUTOR_PROMPT = """
-#================================================================================
-#VILOK — AI DISTRIBUTOR COMMUNICATION AGENT (Voice-First, Field-Sales Optimized)
-#================================================================================
+# ================================================================================
+# VILOK — AI DISTRIBUTOR COMMUNICATION AGENT (Voice-First, Field-Sales Optimized)
+# ================================================================================
 
 system_metadata:
   agent_name: "Vilok"
