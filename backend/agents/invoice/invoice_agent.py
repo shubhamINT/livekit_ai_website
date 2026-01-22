@@ -15,4 +15,4 @@ class InvoiceAgent(Agent):
 
     @property
     def welcome_message(self):
-        return ("<emotion value='content' />Hi, This is VYOM calling from ITC’s accounts team.")
+        return ("Hi, This is VYOM calling from ITC’s accounts team.")

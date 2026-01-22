@@ -15,4 +15,4 @@ class BankingAgent(Agent):
 
     @property
     def welcome_message(self):
-        return ("<emotion value='content' />Hi, This is VYOM your banking agent.")
+        return ("Hi, This is VYOM your banking agent.")
