@@ -70,13 +70,12 @@ async def my_agent(ctx: JobContext):
 
     session = AgentSession(
         llm=realtime.RealtimeModel(
-            model="gpt-4o-realtime-preview",
+            model="gpt-realtime",
             input_audio_transcription = AudioTranscription(
-                    model="gpt-4o-transcribe",
+                    model="gpt-4o-mini-transcribe",
                     prompt=(
                         "The speaker is multilingual and switches between different languages dynamically. "
-                        "Do not force any specific language for transcription. "
-                        "Transcribe exactly what is said, preserving the original words and spelling of the language spoken."
+                        "Transcribe exactly what is spoken without translating."
                     )
                 ),
             input_audio_noise_reduction = "near_field",
