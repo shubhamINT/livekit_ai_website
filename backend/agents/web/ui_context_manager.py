@@ -53,6 +53,10 @@ class UIContextManager:
         self.viewport = ViewportInfo()
         self.active_elements: dict[str, ElementInfo] = {}
         self.page_context = PageContext()
+        self.capabilities: dict[str, bool] = {
+            "supportsRichUI": False,
+            "supportsDynamicMedia": False,
+        }
         self._last_sync_timestamp: int = 0
     
     def update_from_sync(self, payload: dict) -> None:
@@ -115,6 +119,12 @@ class UIContextManager:
             )
             logger.debug(f"Page context updated: {self.page_context}")
         
+        # Update capabilities
+        self.capabilities["supportsRichUI"] = payload.get("supportsRichUI", False)
+        self.capabilities["supportsDynamicMedia"] = payload.get("supportsDynamicMedia", False)
+        if self.capabilities["supportsRichUI"] or self.capabilities["supportsDynamicMedia"]:
+            logger.info("Frontend capabilities: %s", self.capabilities)
+        
         self._last_sync_timestamp = payload.get("timestamp", 0)
     
     def is_visible(self, element_id: str) -> bool:
@@ -158,6 +168,11 @@ class UIContextManager:
         else:
             lines.append("- No cards currently visible")
         
+        lines.append("")
+        lines.append("## FRONTEND CAPABILITIES")
+        lines.append(f"- Rich UI (Visual Intent/Animations): {'Supported' if self.capabilities.get('supportsRichUI') else 'Not Supported'}")
+        lines.append(f"- Dynamic Media (Keyword Images): {'Supported' if self.capabilities.get('supportsDynamicMedia') else 'Not Supported'}")
+
         lines.append("")
         lines.append("## REDUNDANCY RULE")
         lines.append("DO NOT generate information for cards already visible above.")

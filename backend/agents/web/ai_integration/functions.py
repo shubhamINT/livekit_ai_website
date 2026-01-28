@@ -125,8 +125,11 @@ class UIAgentFunctions:
             "id",
             "title",
             "value",
-            "accentColor",
+            "visual_intent",
+            "animation_style",
             "icon",
+            "media",
+            "accentColor",
             "theme",
             "size",
             "layout",
@@ -134,6 +137,12 @@ class UIAgentFunctions:
         ):
             if key in card_obj and card_obj[key] is not None:
                 payload[key] = card_obj[key]
+
+        if "visual_intent" not in payload and "intent" in card_obj:
+            payload["visual_intent"] = card_obj["intent"]
+        
+        if "animation_style" not in payload and "animation" in card_obj:
+            payload["animation_style"] = card_obj["animation"]
 
         if "accent_color" in card_obj and "accentColor" not in payload:
             payload["accentColor"] = card_obj["accent_color"]
