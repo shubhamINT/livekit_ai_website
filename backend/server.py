@@ -13,7 +13,7 @@ from livekit.api import LiveKitAPI, ListRoomsRequest
 from pydantic import BaseModel
 
 # Import the outbound call function
-from outbound.outbound_call import make_call
+from outbound.outbound_call import make_call, create_outbound_trunk
 from inbound.config_manager import set_agent_for_number, get_agent_for_number
 
 # Configure logging
@@ -119,6 +119,31 @@ async def trigger_outbound_call(request: OutboundCallRequest):
     except Exception as e:
         logger.error(f"Failed to initiate outbound call: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# Add Outboud trunk
+
+class OutboundTrunkRequest(BaseModel):
+    trunk_name: str
+    trunk_address: str
+    trunk_numbers: list
+    trunk_auth_username: str
+    trunk_auth_password: str
+
+@app.post("/api/addOutboundTrunk")
+async def add_outbound_trunk(request: OutboundTrunkRequest):
+    logger.info(f"Received outbound trunk request: {request}")
+    
+    try:
+        res = await create_outbound_trunk(request.trunk_name, request.trunk_address, request.trunk_numbers, request.trunk_auth_username, request.trunk_auth_password)
+        return res
+    except Exception as e:
+        logger.error(f"Failed to initiate outbound call: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
 
 class InboundAgentRequest(BaseModel):
     phone_number: str
