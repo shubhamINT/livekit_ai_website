@@ -63,8 +63,8 @@ class OutboundCall:
                 "data" :
                     {
                         "room" : unique_room_name,
-                        "participant" : sip_participant,
-                        "dispatch" : dispatch,
+                        "participant" : MessageToDict(sip_participant),
+                        "dispatch" : MessageToDict(dispatch),
                         "trunk_id" : self.exotel_trunk_id,
                         "call_from" : call_from,
                         "call_to_phone_number" : phone_number
