@@ -94,7 +94,7 @@ async def my_agent(ctx: JobContext):
         ),
         tts=cartesia.TTS(
             model="sonic-3", 
-            voice="47f3bbb1-e98f-4e0c-92c5-5f0325e1e206",
+            voice="f3fc8397-87fe-4d5f-87c7-9467f62a06ac",
             api_key=os.getenv("CARTESIA_API_KEY"),
             # volume=1.8
             ),
