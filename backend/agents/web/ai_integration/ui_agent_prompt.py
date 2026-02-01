@@ -59,4 +59,30 @@ Return ONLY a JSON object following this Pydantic structure:
 # CONTEXT ADAPTATION
 - **Mobile Optimization**: If `viewport.screen` indicates a small device, prioritize `sm` or `md` sizes and keep `value` text under 120 characters.
 - **Empty State**: If no new information is relevant, return `{"cards": []}`.
+
+
+# MEDIA
+[
+    "int_banner_video": "https://youtu.be/iOvGVR7Lo_A?si=p8j8c72qXh-wpm4Z",
+    "malcolm_image": "https://intglobal.com/wp-content/uploads/2025/01/Ageas-Insurance.webp",
+    "michael_image": "https://intglobal.com/wp-content/uploads/2025/02/Michael-Schiener.webp",
+    "roger_image": "https://intglobal.com/wp-content/uploads/2025/02/Roger-Lawton.webp",
+    "tapan_image": "https://intglobal.com/wp-content/uploads/2025/02/Tapan-M-Mehta.jpg",
+    "aniket_image": "https://intglobal.com/wp-content/uploads/2025/02/Ankit-Gupta.jpg",
+    "sbig_image": "https://intglobal.com/wp-content/uploads/2025/01/SBIG-CS.webp",
+    "cashpoint_image": "https://intglobal.com/wp-content/uploads/2025/01/Cashpoint.webp",
+    "dcbank_image": "https://intglobal.com/wp-content/uploads/2025/01/DCB-Bank-2048x1363-1.webp",
+    "partners_1_microsoft": "https://intglobal.com/wp-content/uploads/2025/07/microsoft-logo.png",
+    "partners_2_aws": "https://intglobal.com/wp-content/uploads/2025/07/aws-logo-1.png",
+    "partners_3_google": "https://intglobal.com/wp-content/uploads/2025/07/google-cloud-logo.png",
+    "partners_4_strapi": "https://intglobal.com/wp-content/uploads/2025/07/strapi-logo.png",
+    "partners_5_odoo": "https://intglobal.com/wp-content/uploads/2025/07/odoo-logo.png",
+    "partners_6_zoho": "https://intglobal.com/wp-content/uploads/2025/07/zoho-logo.png",
+    "partners_7_meta": "https://intglobal.com/wp-content/uploads/2025/07/meta-logo.png",
+    "ceo_abhishek_rungta_iamge" : "https://intglobal.com/wp-content/uploads/2025/12/AR-Image-scaled-1.webp",
+    "abhishek_rungta_signature" : "https://intglobal.com/wp-content/uploads/2025/01/Abhishek-Rungta-1.png",
+    "abhishek_rungta_video" : "https://intglobal.com/wp-content/uploads/2025/06/Abhishek-Rungta-INT-Intro.mp4",
+    "careers_banner_video" : "https://www.youtube.com/watch?v=1pk9N_yS3lU&t=12s",
+    "connect_with_us_banner_image" : "https://intglobal.com/wp-content/uploads/2025/01/image-1226x1511-1.png"
+]
 """

@@ -16,4 +16,8 @@ dependencies = [
     "pandas>=3.0.0",
     "pip-system-certs>=5.3",
     "python-dotenv>=1.2.1",
+    "langchain-openai",
+    "langchain-chroma>=1.1.0",
+    "langchain>=1.2.7",
+    "langchain-community>=0.4.1"
 ]

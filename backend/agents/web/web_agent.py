@@ -1,6 +1,7 @@
 # from agents.base_agent import BaseAgentWithCustomSTT
 from livekit.agents import function_tool, RunContext, Agent
-import chromadb
+from langchain_openai import OpenAIEmbeddings
+from langchain_chroma import Chroma
 import logging
 import json
 import asyncio
@@ -20,11 +21,14 @@ class Webagent(Agent):
             instructions=self._base_instruction,
         )
         self.room = room
-        self.chroma_client = chromadb.PersistentClient(path="./vector_db")
-        self.collection = self.chroma_client.get_or_create_collection(
-            name="indusnet_website_v2"
+        self.embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+        self.vectorstore = Chroma(
+            persist_directory="./chroma_db",
+            embedding_function=self.embeddings,
+            collection_name="indus_net_knowledge"
         )
-        self.db_fetch_size = 10
+        self.db_fetch_size = 5
+        self.db_results = ""
         # UI Context Manager for state tracking and redundancy prevention
         self.ui_agent_functions = UIAgentFunctions()
 
@@ -43,42 +47,25 @@ class Webagent(Agent):
         Search the official Indus Net Knowledge Base for information about the company. 
         """
         logger.info(f"Searching knowledge base for: {question}")
+        await self._vector_db_search(question)
+        return self.db_results
         
-        # 1. Fetch from Vector DB
-        results = self.collection.query(
-            query_texts=[question], n_results=self.db_fetch_size
-        )
-        documents = results.get("documents") or []
-
-        # 2. Clean and Format Data
-        flat_documents = [item for sublist in documents for item in sublist]
-        joined = "\n\n---\n\n".join(doc.strip() for doc in flat_documents if doc.strip())
-        cleaned = "\n".join(
-            line for i, line in enumerate(joined.splitlines())
-            if line.strip() and (i == 0 or line.strip() != joined.splitlines()[i-1].strip())
-        )
-
-        return cleaned
-
     # Publish UI Stream to frontend
     @function_tool
-    async def publish_ui_stream(self, context: RunContext, user_input: str, db_results: str, agent_response: str) -> None:
+    async def publish_ui_stream(self, context: RunContext, user_input: str, agent_response: str) -> None:
         """
         Publish the UI stream to the frontend.
         Call this tool AFTER searching the knowledge base.
-        Pass the 'db_results' you got from the search tool, the original 'user_input', and your formulated 'agent_response'.
+        Pass the original 'user_input', and your formulated 'agent_response'.
         This will generate and display flashcards on the user's screen.
         """
         logger.info(f"Publishing UI stream for: {user_input}")
         
         # This runs in the background to ensure the voice response isn't delayed
-        asyncio.create_task(
-            asyncio.to_thread(
-                lambda: asyncio.run(self._publish_ui_stream(user_input, db_results, agent_response))
-            )
-        )
+        asyncio.create_task(self._publish_ui_stream(user_input, self.db_results, agent_response))
         return "UI stream published."
 
+    # Publish UI Stream to frontend
     async def _publish_ui_stream(self, user_input: str, db_results: str, agent_response: str) -> None:
         """Generate and publish UI cards, filtering out already-visible content."""
         
@@ -124,6 +111,59 @@ class Webagent(Agent):
         except Exception as e:
             logger.error(f"❌ Failed to send end-of-stream marker: {e}")
 
+    # Vector db search and retun in Markdown
+    async def _vector_db_search(self, query: str) -> str:
+        """Search the vector database for relevant information."""
+        # 1. Fetch from Vector DB
+        results = self.vectorstore.similarity_search(
+            query=query, k=self.db_fetch_size
+        )
+        
+        formatted_results = []
+        for i, doc in enumerate(results):
+            content = doc.page_content.strip()
+            meta = doc.metadata
+            
+            # Start with the main content
+            md_chunk = f"### Result {i+1}\n\n{content}\n"
+            
+            # 2. Extract and format ALL metadata dynamically
+            details = []
+            for key, val in meta.items():
+                # Skip internal/empty keys if necessary (e.g., 'source_content_focus')
+                if not val or key in ["source_content_focus"]:
+                    continue
+
+                human_key = key.replace("_", " ").title()
+                
+                # Check if it's a JSON string (list or dict)
+                if isinstance(val, str) and val.strip().startswith(("[", "{")):
+                    try:
+                        parsed = json.loads(val)
+                        if isinstance(parsed, list):
+                            formatted_val = ", ".join(map(str, parsed))
+                        elif isinstance(parsed, dict):
+                            formatted_val = ", ".join([f"{k.replace('_', ' ').title()}: {v}" for k, v in parsed.items()])
+                        else:
+                            formatted_val = str(parsed)
+                        
+                        details.append(f"**{human_key}:** {formatted_val}")
+                    except:
+                        # Fallback for invalid JSON
+                        details.append(f"**{human_key}:** {val}")
+                else:
+                    # Regular value
+                    details.append(f"**{human_key}:** {val}")
+
+            if details:
+                md_chunk += "\n" + "\n".join([f"- {d}" for d in details])
+            
+            formatted_results.append(md_chunk)
+
+        self.db_results = "\n\n---\n\n".join(formatted_results)
+        logger.info(f"✅ DB results converted to markdown")
+        return self.db_results
+
     # Get UI context from frontend and update agent instructions
     async def update_ui_context(self, context_payload: dict) -> None:
         """Process UI context sync from frontend and update agent state."""
@@ -144,7 +184,7 @@ class Webagent(Agent):
         # Update the instructions with current active elements/UI state
         await self._update_instructions_with_context(active_elements)
 
-    
+    # Update instructions with current active elements/UI state
     async def _update_instructions_with_context(self, active_elements: list = []) -> None:
         """Inject current UI state into agent instructions."""
         logger.debug("Agent instructions updated with UI context")
