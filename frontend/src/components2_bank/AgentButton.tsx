@@ -3,6 +3,7 @@ import type { AgentType } from '../types/agent';
 
 interface AgentButtonProps {
     label: string;
+    description?: string; // Added description for card layout
     agentType: AgentType;
     onWebCall: (agent: AgentType) => void;
     onOutboundCall: (agent: AgentType) => void;
@@ -10,40 +11,50 @@ interface AgentButtonProps {
     disabled?: boolean;
 }
 
-export function AgentButton({ label, agentType, onWebCall, onOutboundCall, onMobileClick, disabled }: AgentButtonProps) {
+export function AgentButton({ label, description, agentType, onWebCall, onOutboundCall, onMobileClick, disabled }: AgentButtonProps) {
     return (
-        <div className="relative group w-full max-w-xs mx-auto h-[60px]">
-            {/* Default Button State (Mobile: Always visible, Desktop: Hidden on Hover) */}
-            <button
-                disabled={disabled}
-                onClick={() => onMobileClick(agentType)}
-                className="absolute inset-0 w-full h-full bg-primary text-white rounded-full font-semibold shadow-lg flex items-center justify-center gap-3 transition-all duration-300 transform md:group-hover:opacity-0 md:group-hover:scale-95 md:group-hover:pointer-events-none z-10"
-            >
-                <span>{label}</span>
-                <ArrowRight size={18} className="opacity-70" />
-            </button>
+        <div className="group relative w-full bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex flex-col gap-4 transition-all duration-300 hover:shadow-xl hover:border-primary/20 hover:-translate-y-1 overflow-hidden">
 
-            {/* Split Options State (Desktop Only: Visible ON hover) */}
-            <div className="hidden md:flex absolute inset-0 w-full h-full gap-2 opacity-0 scale-90 md:group-hover:opacity-100 md:group-hover:scale-100 transition-all duration-300 z-20">
+            {/* Hover Gradient Effect */}
+            <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
+
+            {/* Header / Title */}
+            <div className="relative z-10 flex justify-between items-start">
+                <div className="space-y-1">
+                    <h3 className="font-bold text-lg text-gray-800 group-hover:text-primary transition-colors">{label}</h3>
+                    {description && <p className="text-xs text-gray-500 line-clamp-2">{description}</p>}
+                </div>
+                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center text-primary transform group-hover:scale-110 transition-transform">
+                    <ArrowRight size={16} className="-rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                </div>
+            </div>
+
+            {/* Actions (Desktop) */}
+            <div className="relative z-10 hidden md:grid grid-cols-2 gap-3 mt-auto pt-2">
                 <button
                     onClick={() => onWebCall(agentType)}
                     disabled={disabled}
-                    className="flex-1 bg-white border-2 border-primary text-primary hover:bg-primary-50 rounded-l-full font-medium shadow-md flex items-center justify-center gap-2 transition-colors duration-200"
-                    title="Web Call"
+                    className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium bg-gray-50 text-gray-600 hover:bg-primary hover:text-white transition-all duration-200 border border-transparent hover:border-primary/20"
                 >
-                    <Globe size={18} />
-                    <span className="text-sm">Web</span>
+                    <Globe size={16} />
+                    <span>Web</span>
                 </button>
                 <button
                     onClick={() => onOutboundCall(agentType)}
                     disabled={disabled}
-                    className="flex-1 bg-primary text-white hover:bg-primary-hover rounded-r-full font-medium shadow-md flex items-center justify-center gap-2 transition-colors duration-200"
-                    title="Outbound Call"
+                    className="flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-sm font-medium bg-gray-50 text-gray-600 hover:bg-green-600 hover:text-white transition-all duration-200 border border-transparent hover:border-green-600/20"
                 >
-                    <Phone size={18} />
-                    <span className="text-sm">Phone</span>
+                    <Phone size={16} />
+                    <span>Call</span>
                 </button>
             </div>
+
+            {/* Mobile Click Overlay */}
+            <button
+                onClick={() => onMobileClick(agentType)}
+                className="md:hidden absolute inset-0 z-20 w-full h-full cursor-pointer"
+                aria-label={`Select ${label}`}
+            />
         </div>
     );
 }

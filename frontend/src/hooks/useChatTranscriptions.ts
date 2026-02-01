@@ -34,7 +34,7 @@ export function useChatTranscriptions() {
           next.set(segment.id, {
             id: segment.id,
             type: 'text', // Explicitly set type
-            text: segment.text.replace(/\[.*?\]/g, '').trim(), // Remove any [] from the text
+            text: segment.text.replace(/\[.*?\]|<.*?>/g, '').trim(), // Remove any [] from the text
             sender: senderIsAgent ? "agent" : "user",
             isInterim: !segment.final,
             timestamp: segment.firstReceivedTime,
