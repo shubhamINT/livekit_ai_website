@@ -69,7 +69,7 @@ Return ONLY a JSON object following this Pydantic structure:
 
 # MEDIA
 [
-    "int_banner_video": "https://youtu.be/iOvGVR7Lo_A?si=p8j8c72qXh-wpm4Z",
+    "indusnet_into_video": "https://youtu.be/iOvGVR7Lo_A?si=p8j8c72qXh-wpm4Z",
     "malcolm_image": "https://intglobal.com/wp-content/uploads/2025/01/Ageas-Insurance.webp",
     "michael_image": "https://intglobal.com/wp-content/uploads/2025/02/Michael-Schiener.webp",
     "roger_image": "https://intglobal.com/wp-content/uploads/2025/02/Roger-Lawton.webp",
@@ -89,6 +89,6 @@ Return ONLY a JSON object following this Pydantic structure:
     "abhishek_rungta_signature" : "https://intglobal.com/wp-content/uploads/2025/01/Abhishek-Rungta-1.png",
     "abhishek_rungta_video" : "https://intglobal.com/wp-content/uploads/2025/06/Abhishek-Rungta-INT-Intro.mp4",
     "careers_banner_video" : "https://www.youtube.com/watch?v=1pk9N_yS3lU&t=12s",
-    "connect_with_us_banner_image" : "https://intglobal.com/wp-content/uploads/2025/01/image-1226x1511-1.png"
+    "contact_banner_image" : "https://intglobal.com/wp-content/uploads/2025/01/image-1226x1511-1.png"
 ]
 """

@@ -72,6 +72,8 @@ export default function HomePage() {
             navigate('/jharkhand');
         } else if (agent === 'bandhan_banking') {
             navigate('/bandhan_banking');
+        } else if (agent === 'ambuja') {
+            navigate('/ambuja');
         } else {
             connect(agent);
         }
@@ -182,6 +184,15 @@ export default function HomePage() {
                         <AgentButton
                             label="Bandhan Bank Agent"
                             agentType="bandhan_banking"
+                            onWebCall={handleWebCall}
+                            onOutboundCall={handleOutboundCall}
+                            onMobileClick={handleMobileClick}
+                            disabled={connecting}
+                        />
+
+                        <AgentButton
+                            label="Ambuja Agent"
+                            agentType="ambuja"
                             onWebCall={handleWebCall}
                             onOutboundCall={handleOutboundCall}
                             onMobileClick={handleMobileClick}
