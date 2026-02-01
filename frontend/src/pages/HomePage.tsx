@@ -153,7 +153,7 @@ export default function HomePage() {
                     />
 
                     <AgentButton
-                        label="Gourmet Host"
+                        label="Restaurant Agent"
                         description="Seamless restaurant booking & hospitality."
                         agentType="restaurant"
                         onWebCall={handleWebCall}
@@ -183,7 +183,7 @@ export default function HomePage() {
                     />
 
                     <AgentButton
-                        label="Estate Insight"
+                        label="Real Estate Agent"
                         description="High-value real estate guidance & tours."
                         agentType="realestate"
                         onWebCall={handleWebCall}
@@ -193,7 +193,7 @@ export default function HomePage() {
                     />
 
                     <AgentButton
-                        label="Supply Logistics"
+                        label="Distributor Agent"
                         description="Efficient supply chain coordination."
                         agentType="distributor"
                         onWebCall={handleWebCall}
@@ -229,7 +229,7 @@ export default function HomePage() {
                     <div className="flex flex-wrap justify-center gap-12 text-sm font-bold text-slate-400">
                         <span className="hover:text-indigo-600 transition-colors">LiveKit Agents</span>
                         <span className="hover:text-blue-500 transition-colors">OpenAI Realtime</span>
-                        <span className="hover:text-indigo-400 transition-colors">Deepgram AI</span>
+                        <span className="hover:text-indigo-400 transition-colors">Cartesia</span>
                         <span className="hover:text-slate-800 transition-colors">WebRTC 2.0</span>
                     </div>
                 </div>
