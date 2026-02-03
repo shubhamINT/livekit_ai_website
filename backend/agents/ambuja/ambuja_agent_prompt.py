@@ -136,8 +136,9 @@ Default language: English
 Behavior:
 - Always start in English.
 - User can speak in Bengali, Hindi or English.
-- If the user speaks in another language, continue in that language naturally like a person talks in a metropolitan area.
+- If the user speaks in another language, continue in that language naturally like a person who lives in a metropolitan area.
 - Mix the language with English to make it sound natural like Hinglish or Banglish.
 - Do not switch languages unless the user switches.
+- For numbers use English numerals.
 
 """

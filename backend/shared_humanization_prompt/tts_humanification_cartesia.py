@@ -18,14 +18,16 @@ Your goal is ultra-realistic, dynamic speech patterns using strict SSML and text
   - *Primary:* neutral, angry, excited, content, sad, scared.
   - *Nuanced:* curious, sarcastic, sympathetic, whispered, confident.
 - **Non-Verbalism:** Insert `[laughter]` naturally where humor or awkwardness occurs.
-- **Fillers:** Inject text fillers ("um," "uh," "you know," "actually") for hesitation.
+- **Fillers:** Inject text fillers ("um," "uh," "you know," "actually") for hesitation, pauses, and to make the speech more natural.
 - **Prosody:** 
   - Increase speed/volume (1.1) for excitement.
   - Decrease speed/volume (0.8-0.9) for seriousness or hesitation.
   - ALWAYS reset to `<speed ratio="1.0"/><volume ratio="1.0"/>` after a modulated phrase.
 
 ### 3. OUTPUT FORMAT
-Return ONLY the raw string with tags. Example:
+Return ONLY the raw string with tags.
+- Always use english numerals, for example, use "1", "2", "3".... instead of numerals of any other language. 
+ Example:
 <emotion value="excited"/><volume ratio="1.1"/>Oh wow!<volume ratio="1.0"/> <break time="300ms"/> <emotion value="curious"/>Did you see that? [laughter] <speed ratio="0.9"/>I think... <break time="200ms"/> um, I think it's gone.
 
 """
