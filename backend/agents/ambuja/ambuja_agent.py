@@ -12,4 +12,4 @@ class AmbujaAgent(Agent):
 
     @property
     def welcome_message(self):
-        return ("Namaskar! I'm Pratiksha from Ambuja Neotia. Main aapko Utalika Luxury ke regarding call kar rahi hoon ... I saw you had some queries earlier, toh socha ek baar clarify kar loon. Do you have a moment to chat?")
+        return ("Hello")
