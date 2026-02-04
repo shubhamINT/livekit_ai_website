@@ -11,7 +11,8 @@ from fastapi.responses import PlainTextResponse, JSONResponse
 from livekit import api as lk_api
 from livekit.api import LiveKitAPI, ListRoomsRequest
 from pydantic import BaseModel
-from api_data_structure.structure import OutboundCallRequest, OutboundTrunkCreate
+from api_data_structure.structure import OutboundCallRequest, OutboundTrunkCreate, SIPTestRequest
+import asyncio
 
 # Import the outbound call function
 from outbound.outbound_call import OutboundCall
@@ -178,6 +179,31 @@ async def get_inbound_agent(phone_number: str = Query(...)):
 @app.get("/health", response_class=PlainTextResponse)
 async def health():
     return "ok"
+
+# Test SIP
+from sip_test import make_exotel_call
+
+@app.post("/api/testsip")
+async def trigger_sip_test_call(data: SIPTestRequest):
+    logger.info(f"Received SIP test call request: {data}")
+        
+    try:
+        # Since make_exotel_call uses blocking sockets, run it in a thread
+        res = await asyncio.to_thread(
+            make_exotel_call,
+            exotel_ip=data.exotel_ip,
+            exotel_port=data.exotel_port,
+            customer_ip=data.customer_ip,
+            customer_port=data.customer_port,
+            media_ip=data.media_ip,
+            rtp_port=data.rtp_port,
+            caller=data.caller,
+            callee=data.callee
+        )
+        return res
+    except Exception as e:
+        logger.error(f"Failed to initiate SIP test call: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":

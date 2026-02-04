@@ -16,3 +16,14 @@ class OutboundCallRequest(BaseModel):
     phone_number: str
     agent_type: str = "invoice"
     call_from: Literal["exotel", "twilio"] = "exotel"
+
+# SIP TEST
+class SIPTestRequest(BaseModel):
+    exotel_ip: str
+    exotel_port: int
+    customer_ip: str
+    customer_port: int
+    media_ip: str
+    rtp_port: int
+    caller: str
+    callee: str
