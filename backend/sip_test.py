@@ -49,7 +49,7 @@ a=sendrecv
     def _build_invite() -> bytes:
         branch = _generate_branch()
         tag = _generate_tag()
-        call_id = _generate_call_id("exotelt.pstn.exotel.com")
+        call_id = _generate_call_id("lokaviveka1m.pstn.exotel.com")
         
         sdp = _build_sdp(media_ip, rtp_port)
         content_length = len(sdp.encode())
@@ -57,7 +57,7 @@ a=sendrecv
         invite = f"""INVITE sip:{callee}@{exotel_ip}:{exotel_port} SIP/2.0
 Via: SIP/2.0/TCP {customer_ip}:{customer_port};branch={branch}
 Max-Forwards: 70
-From: "{caller}" <sip:{caller}@exotelt.pstn.exotel.com>;tag={tag}
+From: "{caller}" <sip:{caller}@lokaviveka1m.pstn.exotel.com>;tag={tag}
 To: <sip:{callee}@{exotel_ip}>
 Contact: <sip:{caller}@{customer_ip}:{customer_port};transport=tcp>
 Call-ID: {call_id}
