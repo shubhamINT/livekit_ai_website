@@ -77,12 +77,10 @@ ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
 # Install system dependencies required for audio / webrtc / native builds
-# supervisor is used to run multiple processes
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
     python3-dev \
     build-essential \
-    supervisor \
     ca-certificates \
     ffmpeg \
     libsndfile1 \
@@ -138,8 +136,8 @@ EXPOSE 8000
 # Healthcheck
 HEALTHCHECK CMD curl --fail http://localhost:8000/health || exit 1
 
-# Start supervisor
-CMD ["supervisord", "-c", "/home/appuser/supervisord.conf"]
+# Default command (can be overridden in docker-compose)
+CMD ["python", "server_run.py"]
 
 
 

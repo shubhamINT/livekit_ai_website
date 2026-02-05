@@ -11,8 +11,6 @@ from livekit.agents import (
     BackgroundAudioPlayer,
     AudioConfig,
 )
-from livekit.plugins import noise_cancellation
-from agents.web.web_agent import Webagent
 from agents.invoice.invoice_agent import InvoiceAgent
 from agents.restaurant.restaurant_agent import RestaurantAgent
 from agents.banking.banking_agent import BankingAgent
@@ -30,10 +28,6 @@ import json
 import asyncio
 from typing import cast
 from inbound.config_manager import get_agent_for_number
-# from utils.elevenlabs_nonstream_tts import ElevenLabsNonStreamingTTS
-
-# Recording input
-# from recording.recording import start_audio_recording, record_participant_audio, start_audio_recording2
 
 logger = logging.getLogger("agent")
 load_dotenv(override=True)
@@ -41,7 +35,6 @@ load_dotenv(override=True)
 
 # Register multiple agent
 AGENT_TYPES = {
-    "web": Webagent,
     "invoice": InvoiceAgent,
     "restaurant": RestaurantAgent,
     "bank": BankingAgent,
@@ -60,15 +53,6 @@ server = AgentServer(
     ws_url=os.getenv("LIVEKIT_URL"),
     job_memory_warn_mb=1024,
 )
-
-
-# # Helper function to handle the Egress call in background
-# async def trigger_recording(room_name, agent_type):
-#     try:
-#         info = await start_audio_recording(room_name=room_name, agent_name=agent_type)
-#         logger.info(f"Egress started successfully: {info}")
-#     except Exception as e:
-#         logger.error(f"Failed to start Egress: {e}")
 
 
 @server.rtc_session()
@@ -96,17 +80,11 @@ async def my_agent(ctx: JobContext):
         model="sonic-3", 
         voice="f6141af3-5f94-418c-80ed-a45d450e7e2e",
         api_key=os.getenv("CARTESIA_API_KEY"),
-        # volume=1.8
         )
     
     session = AgentSession(
         llm=llm,
         tts=tts,
-        # tts=ElevenLabsNonStreamingTTS(
-        #     voice_id="kL8yauEAuyf6botQt9wa",  # Monika - Indian Female
-        #     model="eleven_v3",
-        #     api_key=cast(str, os.getenv("ELEVENLABS_API_KEY")),
-        # ),
         preemptive_generation=True,
         use_tts_aligned_transcript=False,
     )
@@ -128,11 +106,21 @@ async def my_agent(ctx: JobContext):
     # --- START SESSION ---
     logger.info("Starting AgentSession...")
     try:
+
+        # Configure room options
+        room_options = room_io.RoomOptions(
+            text_input=True,
+            audio_input=True,
+            audio_output=True,
+            close_on_disconnect=True,
+            delete_room_on_close=True,
+        )
+        
         await session.start(
             # Start with a generic agent, we update it immediately after determining type
             agent=InvoiceAgent(room=ctx.room),
             room=ctx.room,
-            # DELETED: noise_cancellation filters as they require LiveKit Cloud
+            room_options=room_options,
         )
         logger.info("AgentSession started successfully")
 
@@ -143,8 +131,8 @@ async def my_agent(ctx: JobContext):
             f"Participant joined: {participant.identity}, kind={participant.kind}, metadata={participant.metadata}"
         )
 
-        # Determine agent type based on room metadata or fallback to "web"
-        agent_type = "web"
+        # Determine agent type based on room metadata or fallback to "invoice"
+        agent_type = "invoice"
         
         # Check if SIP call
         if participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP:
@@ -153,7 +141,7 @@ async def my_agent(ctx: JobContext):
                 try:
                     metadata = json.loads(participant.metadata)
                     if metadata.get("call_type") == "outbound":
-                        agent_type = metadata.get("agent", "web")
+                        agent_type = metadata.get("agent", "invoice")
                         logger.info(f"Outbound SIP call, agent_type={agent_type}")
                 except Exception as e:
                     logger.error(f"Error parsing SIP metadata: {e}")
@@ -168,39 +156,19 @@ async def my_agent(ctx: JobContext):
         else:
             # Web call
             try:
-                agent_type = json.loads(participant.metadata).get("agent", "web")
+                agent_type = json.loads(participant.metadata).get("agent", "invoice")
                 logger.info(f"Web call, agent_type={agent_type}")
             except Exception:
-                logger.warning("Could not parse agent_type from web participant metadata, defaulting to 'web'")
+                logger.warning("Could not parse agent_type from web participant metadata, defaulting to 'invoice'")
 
         # Initialize the specific Agent Class
-        AgentClass = AGENT_TYPES.get(agent_type, Webagent)
+        AgentClass = AGENT_TYPES.get(agent_type, InvoiceAgent)
         logger.info(f"Initializing Agent instance for: {agent_type} ({AgentClass.__name__})")
         agent_instance = AgentClass(room=ctx.room)
 
         # Attach the agent to the session
         session.update_agent(agent=agent_instance)
         logger.info(f"Agent session updated with {agent_type} instance")
-
-        # Frontend details for the WEB agent - UI Context Sync
-        @ctx.room.on("data_received")
-        def _handle_data_received(data: rtc.DataPacket):
-            topic = getattr(data, "topic", None)
-            if topic != "ui.context":
-                return
-            
-            payload = getattr(data, "data", None)
-            if isinstance(payload, bytes):
-                payload_text = payload.decode("utf-8", errors="ignore")
-            else:
-                payload_text = str(payload) if payload is not None else ""
-            
-            try:
-                context_payload = json.loads(payload_text)
-                logger.debug(f"UI Context received: {context_payload}")
-                asyncio.create_task(agent_instance.update_ui_context(context_payload))
-            except Exception as e:
-                logger.warning(f"Failed to process ui.context: {e}")
 
         # --- Background Audio Start ---
         try:

@@ -1,15 +1,33 @@
 name: livekit_ai_website
 
 services:
-  backend:
+  api-server:
     image: shubhamint/ai_website_backend_livekit:latest
     build:
       context: ./backend
       dockerfile: Dockerfile
+    command: [ "python", "server_run.py" ]
     ports:
       - "3011:8000"
-    deploy:
-      replicas: 1
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  agent-worker:
+    image: shubhamint/ai_website_backend_livekit:latest
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: [ "python", "agent_session.py", "start" ]
+    depends_on:
+      - api-server
     logging:
       driver: "json-file"
       options:
@@ -24,7 +42,7 @@ services:
     ports:
       - "3010:80"
     depends_on:
-      backend:
+      api-server:
         condition: service_healthy
     logging:
       driver: "json-file"
