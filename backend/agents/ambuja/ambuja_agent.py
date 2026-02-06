@@ -7,7 +7,7 @@ class AmbujaAgent(Agent):
     def __init__(self, room) -> None:
         super().__init__(
             # Instructions for the agent
-            instructions=AMBUJA_AGENT_PROMPT + TTS_HUMANIFICATION_ELEVENLABS,
+            instructions=AMBUJA_AGENT_PROMPT + TTS_HUMANIFICATION_CARTESIA,
         )
         self.room = room
 

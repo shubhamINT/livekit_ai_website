@@ -58,6 +58,21 @@ server = AgentServer(
 
 @server.rtc_session()
 async def my_agent(ctx: JobContext):
+
+    # READ FROM ROOM METADATA IMMEDIATELY - no waiting needed!
+    room_metadata = json.loads(ctx.room.metadata or "{}")
+    logger.info(f"Room metadata: {room_metadata}")
+    agent_type = room_metadata.get("agent", "invoice")
+
+    logger.info(f"Agent type from room metadata: {agent_type}")
+
+    # Initialize correct agent from the start
+    AgentClass = AGENT_TYPES.get(agent_type, InvoiceAgent)
+    agent_instance = AgentClass(room=ctx.room)
+
+    logger.info(f"Initialized {AgentClass.__name__} for room")
+
+
     llm = realtime.RealtimeModel(
         model="gpt-realtime",
         input_audio_transcription=AudioTranscription(
@@ -77,16 +92,16 @@ async def my_agent(ctx: JobContext):
         modalities=["text"],
         api_key=cast(str, os.getenv("OPENAI_API_KEY")),
     )
-    # tts = cartesia.TTS(
-    #     model="sonic-3", 
-    #     voice="f6141af3-5f94-418c-80ed-a45d450e7e2e",
-    #     api_key=os.getenv("CARTESIA_API_KEY"),
-    #     )
-    tts=ElevenLabsNonStreamingTTS(
-        voice_id="kL8yauEAuyf6botQt9wa",  # Monika - Indian Female
-        model="eleven_v3",
-        api_key=cast(str, os.getenv("ELEVENLABS_API_KEY")),
-    )
+    tts = cartesia.TTS(
+        model="sonic-3", 
+        voice="f6141af3-5f94-418c-80ed-a45d450e7e2e",
+        api_key=os.getenv("CARTESIA_API_KEY"),
+        )
+    # tts=ElevenLabsNonStreamingTTS(
+    #     voice_id="kL8yauEAuyf6botQt9wa",  # Monika - Indian Female
+    #     model="eleven_v3",
+    #     api_key=cast(str, os.getenv("ELEVENLABS_API_KEY")),
+    # )
     
     session = AgentSession(
         llm=llm,
@@ -95,19 +110,19 @@ async def my_agent(ctx: JobContext):
         use_tts_aligned_transcript=False,
     )
 
-    # --- Custom Background Audio Setup ---
-    background_audio = BackgroundAudioPlayer(
-        ambient_sound=AudioConfig(
-            os.path.join(
-                os.path.dirname(__file__), "bg_audio", "office-ambience_48k.wav"
-            ),
-            volume=0.4,
-        ),
-        thinking_sound=AudioConfig(
-            os.path.join(os.path.dirname(__file__), "bg_audio", "typing-sound_48k.wav"),
-            volume=0.5,
-        ),
-    )
+    # # --- Custom Background Audio Setup ---
+    # background_audio = BackgroundAudioPlayer(
+    #     ambient_sound=AudioConfig(
+    #         os.path.join(
+    #             os.path.dirname(__file__), "bg_audio", "office-ambience_48k.wav"
+    #         ),
+    #         volume=0.4,
+    #     ),
+    #     thinking_sound=AudioConfig(
+    #         os.path.join(os.path.dirname(__file__), "bg_audio", "typing-sound_48k.wav"),
+    #         volume=0.5,
+    #     ),
+    # )
 
     # --- START SESSION ---
     logger.info("Starting AgentSession...")
@@ -123,8 +138,7 @@ async def my_agent(ctx: JobContext):
         )
         
         await session.start(
-            # Start with a generic agent, we update it immediately after determining type
-            agent=InvoiceAgent(room=ctx.room),
+            agent=agent_instance,
             room=ctx.room,
             room_options=room_options,
         )
@@ -137,46 +151,56 @@ async def my_agent(ctx: JobContext):
             f"Participant joined: {participant.identity}, kind={participant.kind}, metadata={participant.metadata}"
         )
 
-        # Determine agent type based on room metadata or fallback to "invoice"
-        agent_type = "invoice"
+        # # Determine agent type based on room metadata or fallback to "invoice"
+        # agent_type = "invoice"
         
-        # Check if SIP call
-        if participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP:
-            logger.info("SIP Participant detected")
-            if participant.metadata and participant.metadata.strip():
-                try:
-                    metadata = json.loads(participant.metadata)
-                    if metadata.get("call_type") == "outbound":
-                        agent_type = metadata.get("agent", "invoice")
-                        logger.info(f"Outbound SIP call, agent_type={agent_type}")
-                except Exception as e:
-                    logger.error(f"Error parsing SIP metadata: {e}")
-            else:
-                called_number = participant.attributes.get("sip.trunkPhoneNumber")
-                logger.info(f"Inbound SIP call to: {called_number}")
-                if called_number:
-                    mapped_agent = get_agent_for_number(called_number)
-                    if mapped_agent:
-                        agent_type = mapped_agent
-                        logger.info(f"Mapped SIP number to agent: {agent_type}")
-        else:
-            # Web call
-            try:
-                agent_type = json.loads(participant.metadata).get("agent", "invoice")
-                logger.info(f"Web call, agent_type={agent_type}")
-            except Exception:
-                logger.warning("Could not parse agent_type from web participant metadata, defaulting to 'invoice'")
+        # # Check if SIP call
+        # if participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP:
+        #     logger.info("SIP Participant detected")
+        #     if participant.metadata and participant.metadata.strip():
+        #         try:
+        #             metadata = json.loads(participant.metadata)
+        #             if metadata.get("call_type") == "outbound":
+        #                 agent_type = metadata.get("agent", "invoice")
+        #                 logger.info(f"Outbound SIP call, agent_type={agent_type}")
+        #         except Exception as e:
+        #             logger.error(f"Error parsing SIP metadata: {e}")
+        #     else:
+        #         called_number = participant.attributes.get("sip.trunkPhoneNumber")
+        #         logger.info(f"Inbound SIP call to: {called_number}")
+        #         if called_number:
+        #             mapped_agent = get_agent_for_number(called_number)
+        #             if mapped_agent:
+        #                 agent_type = mapped_agent
+        #                 logger.info(f"Mapped SIP number to agent: {agent_type}")
+        # else:
+        #     # Web call
+        #     try:
+        #         agent_type = json.loads(participant.metadata).get("agent", "invoice")
+        #         logger.info(f"Web call, agent_type={agent_type}")
+        #     except Exception:
+        #         logger.warning("Could not parse agent_type from web participant metadata, defaulting to 'invoice'")
 
-        # Initialize the specific Agent Class
-        AgentClass = AGENT_TYPES.get(agent_type, InvoiceAgent)
-        logger.info(f"Initializing Agent instance for: {agent_type} ({AgentClass.__name__})")
-        agent_instance = AgentClass(room=ctx.room)
+        # # Initialize the specific Agent Class
+        # AgentClass = AGENT_TYPES.get(agent_type, InvoiceAgent)
+        # logger.info(f"Initializing Agent instance for: {agent_type} ({AgentClass.__name__})")
+        # agent_instance = AgentClass(room=ctx.room)
 
         # Attach the agent to the session
-        session.update_agent(agent=agent_instance)
-        logger.info(f"Agent session updated with {agent_type} instance")
+        # session.update_agent(agent=agent_instance)
+        # logger.info(f"Agent session updated with {agent_type} instance")
 
         # --- Background Audio Start ---
+        background_audio = BackgroundAudioPlayer(
+            ambient_sound=AudioConfig(
+                os.path.join(os.path.dirname(__file__), "bg_audio", "office-ambience_48k.wav"),
+                volume=0.4,
+            ),
+            thinking_sound=AudioConfig(
+                os.path.join(os.path.dirname(__file__), "bg_audio", "typing-sound_48k.wav"),
+                volume=0.5,
+            ),
+        )
         try:
             asyncio.create_task(
                 background_audio.start(room=ctx.room, agent_session=session)
@@ -205,18 +229,31 @@ async def my_agent(ctx: JobContext):
                 participant_left.set()
 
         # Keep the task running until the participant leaves or the room is closed
-        while ctx.room.connection_state == rtc.ConnectionState.CONN_CONNECTED and not participant_left.is_set():
-            await asyncio.sleep(1)
-
+        try:
+            while (
+                ctx.room.connection_state == rtc.ConnectionState.CONN_CONNECTED 
+                and not participant_left.is_set()
+            ):
+                await asyncio.sleep(1)
+        except asyncio.CancelledError:
+            logger.info("Keep-alive loop cancelled")
         logger.info("Session ended.")
     finally:
+        # --- PROPER CLEANUP ---
+        logger.info("Cleaning up resources...")
+        
+        # Cancel background audio first
+        bg_task.cancel()
         try:
-            await session.aclose()
-            await llm.aclose()
-            await tts.aclose()
-            logger.info("Resources cleaned up (session, llm, tts closed).")
-        except Exception as cleanup_err:
-            logger.warning(f"Error during resource cleanup: {cleanup_err}")
+            await bg_task
+        except asyncio.CancelledError:
+            pass
+        
+        # Close in dependency order
+        await session.aclose()
+        await llm.aclose()
+        await tts.aclose()
+        logger.info("Cleanup complete")
 
 
 if __name__ == "__main__":

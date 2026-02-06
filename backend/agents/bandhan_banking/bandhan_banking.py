@@ -7,7 +7,7 @@ class BandhanBankingAgent(Agent):
     def __init__(self, room) -> None:
         super().__init__(
             # Instructions for the agent
-            instructions=BANDHAN_BANKING_AGENT_PROMPT + TTS_HUMANIFICATION_ELEVENLABS,
+            instructions=BANDHAN_BANKING_AGENT_PROMPT + TTS_HUMANIFICATION_CARTESIA,
         )
         self.room = room
 

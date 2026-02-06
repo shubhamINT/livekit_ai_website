@@ -56,14 +56,15 @@ async def get_rooms() -> list[str]:
         logger.info("Closed LiveKitAPI client in get_rooms")
 
 
-async def create_room(room_name: str) -> None:
+async def create_room(room_name: str, agent: str) -> None:
     logger.info(f"Creating room: {room_name}")
     lkapi = LiveKitAPI()
     try:
         _ = await lkapi.room.create_room(CreateRoomRequest(
             name=room_name,
-            empty_timeout=1 * 60,
-            max_participants=6,
+            empty_timeout=1 * 30,
+            max_participants=2,
+            metadata=json.dumps({"agent": agent})
         ))
     except Exception as e:
         logger.error(f"Error in create_room: {e}", exc_info=True)
@@ -78,7 +79,7 @@ async def generate_room_name(agent: str) -> str:
     Example: web-a1b2c3d4
     """
     room_name = f"{agent}-{uuid.uuid4().hex[:8]}"
-    await create_room(room_name)
+    await create_room(room_name, agent)
     return room_name
         
     # while True:
