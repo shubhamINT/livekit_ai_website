@@ -63,7 +63,7 @@ async def vyom_demos(ctx: JobContext):
     # Retrive agent name from room name
     room_name = ctx.room.name
     agent_type = room_name.split("-")[0]
-    logger.info(f"Agent type from room name: {agent_type}")
+    logger.info(f"Agent session starting | room: {room_name} | agent_type: {agent_type}")
 
     # Initialize correct agent from the start
     AgentClass = AGENT_TYPES.get(agent_type, AmbujaAgent)
@@ -136,6 +136,13 @@ async def vyom_demos(ctx: JobContext):
             f"Participant joined: {participant.identity}, kind={participant.kind}, metadata={participant.metadata}"
         )
 
+        # Check if this is an outbound call (SIP)
+        is_outbound = "outbound" in room_name or (participant.metadata and "outbound" in participant.metadata)
+        if is_outbound:
+            logger.info("Outbound call detected. Waiting 2 seconds for SIP media stabilization...")
+            await asyncio.sleep(2)
+            logger.info("SIP media stabilization wait complete.")
+
 
         # --- Background Audio Start ---
         background_audio = BackgroundAudioPlayer(
@@ -157,14 +164,13 @@ async def vyom_demos(ctx: JobContext):
             logger.warning(f"Could not start background audio: {e}")
 
         # --- INITIATING SPEECH ---
-        if agent_type != "ambuja":
-            welcome_message = agent_instance.welcome_message
-            logger.info(f"Sending welcome message: '{welcome_message}'")
-            try:
-                await session.say(text=welcome_message, allow_interruptions=True)
-                logger.info("Welcome message sent successfully")
-            except Exception as e:
-                logger.error(f"Failed to send welcome message: {e}", exc_info=True)
+        welcome_message = agent_instance.welcome_message
+        logger.info(f"Sending welcome message: '{welcome_message}' for agent: {agent_type}")
+        try:
+            await session.say(text=welcome_message, allow_interruptions=True)
+            logger.info("Welcome message sent successfully")
+        except Exception as e:
+            logger.error(f"Failed to send welcome message: {e}", exc_info=True)
 
         # --- KEEP ALIVE LOOP ---
         participant_left = asyncio.Event()

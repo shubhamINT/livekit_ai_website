@@ -25,7 +25,7 @@ services:
   # 2. Agent Worker (LiveKit AI Agent)
   agent-worker:
     image: shubhamint/livekit_api_server:latest
-    command: [ "python", "agent_session.py", "dev" ]
+    command: [ "python", "agent_session.py", "start" ]
     depends_on:
       api-server:
         condition: service_healthy
