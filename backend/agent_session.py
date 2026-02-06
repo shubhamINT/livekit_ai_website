@@ -95,30 +95,30 @@ async def vyom_demos(ctx: JobContext):
     try:
 
         # --- Background Audio Start ---
-        # background_audio = BackgroundAudioPlayer(
-        #     ambient_sound=AudioConfig(
-        #         os.path.join(os.path.dirname(__file__), "bg_audio", "office-ambience_48k.wav"),
-        #         volume=0.4,
-        #     ),
-        #     thinking_sound=AudioConfig(
-        #         os.path.join(os.path.dirname(__file__), "bg_audio", "typing-sound_48k.wav"),
-        #         volume=0.5,
-        #     ),
-        # )
+        background_audio = BackgroundAudioPlayer(
+            ambient_sound=AudioConfig(
+                os.path.join(os.path.dirname(__file__), "bg_audio", "office-ambience_48k.wav"),
+                volume=0.4,
+            ),
+            thinking_sound=AudioConfig(
+                os.path.join(os.path.dirname(__file__), "bg_audio", "typing-sound_48k.wav"),
+                volume=0.5,
+            ),
+        )
 
-        # # Configure room options
-        # room_options = room_io.RoomOptions(
-        #     text_input=True,
-        #     audio_input=True,
-        #     audio_output=True,
-        #     close_on_disconnect=True,
-        #     delete_room_on_close=True,
-        # )
+        # Configure room options
+        room_options = room_io.RoomOptions(
+            text_input=True,
+            audio_input=True,
+            audio_output=True,
+            close_on_disconnect=True,
+            delete_room_on_close=True,
+        )
         
         await session.start(
             agent=agent_instance,
             room=ctx.room,
-            # room_options=room_options,
+            room_options=room_options,
         )
         logger.info("AgentSession started successfully")
 
@@ -130,11 +130,11 @@ async def vyom_demos(ctx: JobContext):
         )
 
         # --- Background Audio Start ---
-        # try:
-        #     asyncio.create_task(background_audio.start(room=ctx.room, agent_session=session))
-        #     logger.info("Background audio task spawned")
-        # except Exception as e:
-        #     logger.error(f"Failed to start background audio: {e}")
+        try:
+            asyncio.create_task(background_audio.start(room=ctx.room, agent_session=session))
+            logger.info("Background audio task spawned")
+        except Exception as e:
+            logger.error(f"Failed to start background audio: {e}")
 
         @ctx.room.on("data_received")
         def on_data_received(data: rtc.DataPacket):
