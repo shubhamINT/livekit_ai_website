@@ -106,19 +106,19 @@ async def vyom_demos(ctx: JobContext):
             ),
         )
 
-        # Configure room options
-        room_options = room_io.RoomOptions(
-            text_input=True,
-            audio_input=True,
-            audio_output=True,
-            close_on_disconnect=True,
-            delete_room_on_close=True,
-        )
+        # # Configure room options
+        # room_options = room_io.RoomOptions(
+        #     text_input=True,
+        #     audio_input=True,
+        #     audio_output=True,
+        #     close_on_disconnect=True,
+        #     delete_room_on_close=True,
+        # )
         
         await session.start(
             agent=agent_instance,
             room=ctx.room,
-            room_options=room_options,
+            # room_options=room_options,
         )
         logger.info("AgentSession started successfully")
 

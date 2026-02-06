@@ -1,18 +1,19 @@
-import json
 import os
 import logging
 import uuid
 from typing import Literal
-from livekit.api import (
-    LiveKitAPI,
-    CreateRoomRequest,
-    CreateAgentDispatchRequest,
-    CreateSIPParticipantRequest
-)
-from livekit.protocol.sip import (CreateSIPOutboundTrunkRequest, 
-                                  SIPOutboundTrunkInfo, 
-                                  ListSIPOutboundTrunkRequest)
 from google.protobuf.json_format import MessageToDict
+
+# Import centralized LiveKit services
+from services.lvk_services import (
+    create_room,
+    create_agent_dispatch,
+    create_sip_participant,
+    create_sip_outbound_trunk,
+    list_sip_outbound_trunks,
+    format_success_response,
+    format_error_response
+)
 
 
 class OutboundCall:
@@ -29,83 +30,79 @@ class OutboundCall:
                         agent_type: str = "invoice", 
                         call_from: Literal["exotel", "twilio"] = "exotel"):
         try:
-            lkapi = LiveKitAPI(
-                os.getenv("LIVEKIT_URL"),
-                os.getenv("LIVEKIT_API_KEY"),
-                os.getenv("LIVEKIT_API_SECRET"),
-            )
-
             # Ensure unique room name
             unique_room_name = f"{agent_type}-outbound-{phone_number[-4:]}-{uuid.uuid4().hex[:6]}"
 
-            room_request = CreateRoomRequest(
-                name=unique_room_name,
+            # Room metadata
+            room_metadata = {
+                "call_type": "outbound",
+                "agent": agent_type,
+                "phone": phone_number,
+                "trunk": call_from
+            }
+            
+            # Create room using centralized service
+            room = await create_room(
+                room_name=unique_room_name,
+                agent=agent_type,
                 empty_timeout=60,           # Close 1 min after last participant
-                max_participants=3,          # Agent + SIP participant only
-                metadata=json.dumps({
-                    "call_type": "outbound",
-                    "agent": agent_type,
-                    "phone": phone_number,
-                    "trunk": call_from
-                })
+                max_participants=3,         # Agent + SIP participant only
+                metadata=room_metadata
             )
             
-            room = await lkapi.room.create_room(room_request)
-            self.logger.info(f"Created room: {room.name} (sid: {room.sid})")
+            # Metadata for dispatch and participant
+            metadata = {
+                "agent": agent_type,
+                "phone": phone_number,
+                "call_type": "outbound"
+            }
             
-            # Metadata for dispatch
-            metadata = json.dumps({"agent": agent_type, "phone": phone_number, "call_type": "outbound"})
+            self.logger.info(f"Creating dispatch for agent {agent_type} in room {unique_room_name}")
             
-            self.logger.info(f"Creating dispatch for agent {agent_type} in room {unique_room_name} trunk id {self.exotel_trunk_id}")
-            
-            dispatch = await lkapi.agent_dispatch.create_dispatch(
-                CreateAgentDispatchRequest(
-                    agent_name="vyom_demos", room=unique_room_name, metadata=metadata
-                )
+            # Create agent dispatch using centralized service
+            dispatch = await create_agent_dispatch(
+                room=unique_room_name,
+                agent_name="vyom_demos",
+                metadata=metadata
             )
 
             self.logger.info(f"Created dispatch: {dispatch}")
             self.logger.info(f"Dialing {phone_number} to room {unique_room_name}")
 
+            # Select trunk based on call_from parameter
+            trunk_id = self.exotel_trunk_id if call_from == "exotel" else self.twilio_trunk_id
             
-            sip_participant = await lkapi.sip.create_sip_participant(
-                    CreateSIPParticipantRequest(
-                        room_name=unique_room_name,
-                        sip_trunk_id=self.exotel_trunk_id if call_from == "exotel" else self.twilio_trunk_id,
-                        sip_call_to=phone_number,
-                        participant_identity=phone_number,
-                        participant_metadata=metadata,
-                        krisp_enabled=True,
-                    )
-                )
+            # Create SIP participant using centralized service
+            sip_participant = await create_sip_participant(
+                room_name=unique_room_name,
+                trunk_id=trunk_id,
+                call_to=phone_number,
+                identity=phone_number,
+                metadata=metadata,
+                krisp_enabled=True
+            )
 
             self.logger.info(f"SIP participant created: {sip_participant}")
             
-            payload = {
-                "status" : 0,
-                "message" : f"SIP participant request created",
-                "data" :
-                    {
-                        "room" : unique_room_name,
-                        "participant" : MessageToDict(sip_participant),
-                        "dispatch" : MessageToDict(dispatch),
-                        "trunk_id" : self.exotel_trunk_id,
-                        "call_from" : call_from,
-                        "call_to_phone_number" : phone_number
-                    }
-                
-            }
-            return payload
+            # Format success response
+            return format_success_response(
+                message="SIP participant request created",
+                data={
+                    "room": unique_room_name,
+                    "participant": MessageToDict(sip_participant),
+                    "dispatch": MessageToDict(dispatch),
+                    "trunk_id": trunk_id,
+                    "call_from": call_from,
+                    "call_to_phone_number": phone_number
+                }
+            )
 
         except Exception as e:
             self.logger.error(f"Error creating SIP participant: {e}")
-            return {
-                "status" : -1,
-                "message" : f"Error creating SIP participant: {e}",
-                "data" : {}
-            }
-        finally:
-            await lkapi.aclose()
+            return format_error_response(
+                message="Error creating SIP participant",
+                error=e
+            )
 
     # Create Outbound trunk
     async def create_outbound_trunk(self, 
@@ -119,76 +116,48 @@ class OutboundCall:
         try:
             self.logger.info(f"Received outbound trunk request: {trunk_name}, {trunk_address}, {trunk_numbers}, {trunk_auth_username}, {trunk_auth_password}, {trunk_type}")
 
-            lkapi = LiveKitAPI(
-                os.getenv("LIVEKIT_URL"),
-                os.getenv("LIVEKIT_API_KEY"),
-                os.getenv("LIVEKIT_API_SECRET"),
+            # Create trunk using centralized service
+            trunk = await create_sip_outbound_trunk(
+                trunk_name=trunk_name,
+                trunk_address=trunk_address,
+                trunk_numbers=trunk_numbers,
+                trunk_auth_username=trunk_auth_username,
+                trunk_auth_password=trunk_auth_password
             )
-
-            trunk = SIPOutboundTrunkInfo(
-                name = trunk_name,
-                address = trunk_address,
-                numbers = trunk_numbers,
-                auth_username = trunk_auth_username,
-                auth_password = trunk_auth_password
-            )
-
-            request = CreateSIPOutboundTrunkRequest(
-                trunk = trunk
-            )
-
-            trunk = await lkapi.sip.create_sip_outbound_trunk(request)
 
             self.logger.info(f"Successfully created {trunk}")
             
-            payload = {
-                "status" : 0,
-                "message" : f"Successfully created trunk for {trunk_type}",
-                "data" : MessageToDict(trunk)
-            }
-
-            return payload
-
-        except Exception as e:
-            self.logger.error(f"Error creating SIP outbound trunk: {e}")
-            return {
-                "status" : -1,
-                "message" : f"Error creating SIP outbound trunk: {e}",
-                "data" : {}
-            }
-        finally:
-            await lkapi.aclose()
-
-
-    # Lsit the outbound trunks 
-    async def list_outbound_trunks(self):
-        try:
-            lkapi = LiveKitAPI(
-                os.getenv("LIVEKIT_URL"),
-                os.getenv("LIVEKIT_API_KEY"),
-                os.getenv("LIVEKIT_API_SECRET"),
+            # Format success response
+            return format_success_response(
+                message=f"Successfully created trunk for {trunk_type}",
+                data=MessageToDict(trunk)
             )
 
-            rules = await lkapi.sip.list_sip_outbound_trunk(
-                    ListSIPOutboundTrunkRequest()
-                )
-
-            self.logger.info(f"Successfully listed outbound trunks: {rules}")
-            rules_dict = MessageToDict(rules)
-            
-            payload = {
-                "status" : 0,
-                "message" : f"Successfully listed outbound trunks",
-                "data" : rules_dict
-            }
-
-            return payload
         except Exception as e:
             self.logger.error(f"Error creating SIP outbound trunk: {e}")
-            return {
-                "status" : -1,
-                "message" : f"Error creating SIP outbound trunk: {e}",
-                "data" : {}
-            }
-        finally:
-            await lkapi.aclose()
+            return format_error_response(
+                message="Error creating SIP outbound trunk",
+                error=e
+            )
+
+
+    # List the outbound trunks 
+    async def list_outbound_trunks(self):
+        try:
+            # List trunks using centralized service
+            trunks_dict = await list_sip_outbound_trunks()
+
+            self.logger.info(f"Successfully listed outbound trunks: {trunks_dict}")
+            
+            # Format success response
+            return format_success_response(
+                message="Successfully listed outbound trunks",
+                data=trunks_dict
+            )
+
+        except Exception as e:
+            self.logger.error(f"Error listing SIP outbound trunks: {e}")
+            return format_error_response(
+                message="Error listing SIP outbound trunks",
+                error=e
+            )
