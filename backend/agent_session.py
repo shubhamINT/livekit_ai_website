@@ -130,8 +130,11 @@ async def vyom_demos(ctx: JobContext):
         )
 
         # --- Background Audio Start ---
-        asyncio.create_task(background_audio.start(room=ctx.room, agent_session=session))
-        logger.info("Background audio task spawned")
+        try:
+            asyncio.create_task(background_audio.start(room=ctx.room, agent_session=session))
+            logger.info("Background audio task spawned")
+        except Exception as e:
+            logger.error(f"Failed to start background audio: {e}")
 
         # --- INITIATING SPEECH ---
         if agent_type != "ambuja":

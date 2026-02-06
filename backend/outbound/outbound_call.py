@@ -3,8 +3,12 @@ import os
 import logging
 import uuid
 from typing import Literal
-from livekit import api
-from livekit.api import CreateRoomRequest
+from livekit.api import (
+    LiveKitAPI,
+    CreateRoomRequest,
+    CreateAgentDispatchRequest,
+    CreateSIPParticipantRequest
+)
 from livekit.protocol.sip import (CreateSIPOutboundTrunkRequest, 
                                   SIPOutboundTrunkInfo, 
                                   ListSIPOutboundTrunkRequest)
@@ -25,7 +29,11 @@ class OutboundCall:
                         agent_type: str = "invoice", 
                         call_from: Literal["exotel", "twilio"] = "exotel"):
         try:
-            lkapi = api.LiveKitAPI()
+            lkapi = LiveKitAPI(
+                os.getenv("LIVEKIT_URL"),
+                os.getenv("LIVEKIT_API_KEY"),
+                os.getenv("LIVEKIT_API_SECRET"),
+            )
 
             # Ensure unique room name
             unique_room_name = f"{agent_type}-outbound-{phone_number[-4:]}-{uuid.uuid4().hex[:6]}"
@@ -51,7 +59,7 @@ class OutboundCall:
             self.logger.info(f"Creating dispatch for agent {agent_type} in room {unique_room_name} trunk id {self.exotel_trunk_id}")
             
             dispatch = await lkapi.agent_dispatch.create_dispatch(
-                api.CreateAgentDispatchRequest(
+                CreateAgentDispatchRequest(
                     agent_name="vyom_demos", room=unique_room_name, metadata=metadata
                 )
             )
@@ -61,7 +69,7 @@ class OutboundCall:
 
             
             sip_participant = await lkapi.sip.create_sip_participant(
-                    api.CreateSIPParticipantRequest(
+                    CreateSIPParticipantRequest(
                         room_name=unique_room_name,
                         sip_trunk_id=self.exotel_trunk_id if call_from == "exotel" else self.twilio_trunk_id,
                         sip_call_to=phone_number,
@@ -111,7 +119,11 @@ class OutboundCall:
         try:
             self.logger.info(f"Received outbound trunk request: {trunk_name}, {trunk_address}, {trunk_numbers}, {trunk_auth_username}, {trunk_auth_password}, {trunk_type}")
 
-            lkapi = api.LiveKitAPI()
+            lkapi = LiveKitAPI(
+                os.getenv("LIVEKIT_URL"),
+                os.getenv("LIVEKIT_API_KEY"),
+                os.getenv("LIVEKIT_API_SECRET"),
+            )
 
             trunk = SIPOutboundTrunkInfo(
                 name = trunk_name,
@@ -151,7 +163,11 @@ class OutboundCall:
     # Lsit the outbound trunks 
     async def list_outbound_trunks(self):
         try:
-            lkapi = api.LiveKitAPI()
+            lkapi = LiveKitAPI(
+                os.getenv("LIVEKIT_URL"),
+                os.getenv("LIVEKIT_API_KEY"),
+                os.getenv("LIVEKIT_API_SECRET"),
+            )
 
             rules = await lkapi.sip.list_sip_outbound_trunk(
                     ListSIPOutboundTrunkRequest()
