@@ -154,8 +154,8 @@ async def vyom_demos(ctx: JobContext):
             if is_sip:
                 logger.info("Waiting for SIP call to be answered...")
                 await audio_ready.wait()
-                # Short buffer for RTP stabilization
-                await asyncio.sleep(0.5)
+                # Buffer for RTP stabilization - longer delay ensures welcome message is heard
+                await asyncio.sleep(2.0)
 
             welcome_message = agent_instance.welcome_message
             logger.info(f"Sending welcome message: '{welcome_message}' for agent: {agent_type}")
