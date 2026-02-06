@@ -1,12 +1,12 @@
 from livekit.agents import Agent
 from agents.distributor.distributor_agent_prompt import DISTRIBUTOR_PROMPT
-from shared_humanization_prompt.tts_humanificaiton_elevnlabs import TTS_HUMANIFICATION_ELEVNLABS
+from shared_humanization_prompt.tts_humanificaiton_elevnlabs import TTS_HUMANIFICATION_ELEVENLABS
 
 class DistributorAgent(Agent):
     def __init__(self, room) -> None:
         super().__init__(
             # Instructions for the agent
-            instructions=DISTRIBUTOR_PROMPT + TTS_HUMANIFICATION_ELEVNLABS,
+            instructions=DISTRIBUTOR_PROMPT + TTS_HUMANIFICATION_ELEVENLABS,
         )
         self.room = room
 

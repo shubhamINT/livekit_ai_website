@@ -1,4 +1,4 @@
-TTS_HUMANIFICATION_ELEVNLABS = """
+TTS_HUMANIFICATION_ELEVENLABS = """
 
 # ===================================================================
 # MODULE: ELEVENLABS VOICE HUMANIZATION

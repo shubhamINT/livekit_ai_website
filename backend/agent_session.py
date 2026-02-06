@@ -22,6 +22,7 @@ from agents.ambuja.ambuja_agent import AmbujaAgent
 from openai.types.beta.realtime.session import TurnDetection
 from livekit.plugins import cartesia
 from livekit.plugins.openai import realtime
+from utils.elevenlabs_nonstream_tts import ElevenLabsNonStreamingTTS
 from openai.types.realtime import AudioTranscription
 import os
 import json
@@ -76,11 +77,16 @@ async def my_agent(ctx: JobContext):
         modalities=["text"],
         api_key=cast(str, os.getenv("OPENAI_API_KEY")),
     )
-    tts = cartesia.TTS(
-        model="sonic-3", 
-        voice="f6141af3-5f94-418c-80ed-a45d450e7e2e",
-        api_key=os.getenv("CARTESIA_API_KEY"),
-        )
+    # tts = cartesia.TTS(
+    #     model="sonic-3", 
+    #     voice="f6141af3-5f94-418c-80ed-a45d450e7e2e",
+    #     api_key=os.getenv("CARTESIA_API_KEY"),
+    #     )
+    tts=ElevenLabsNonStreamingTTS(
+        voice_id="kL8yauEAuyf6botQt9wa",  # Monika - Indian Female
+        model="eleven_v3",
+        api_key=cast(str, os.getenv("ELEVENLABS_API_KEY")),
+    )
     
     session = AgentSession(
         llm=llm,
