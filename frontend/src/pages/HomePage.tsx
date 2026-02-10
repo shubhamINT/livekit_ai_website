@@ -84,6 +84,10 @@ export default function HomePage() {
     };
 
     const handleMobileClick = (agent: AgentType) => {
+        if (agent === 'hirebot') {
+            navigate('/hirebot');
+            return;
+        }
         setSelectedAgent(agent);
         setInteractionModalOpen(true);
     };
@@ -230,6 +234,7 @@ export default function HomePage() {
                         onOutboundCall={handleOutboundCall}
                         onMobileClick={handleMobileClick}
                         disabled={connecting}
+                        hideActions={true}
                     />
                 </div>
 
