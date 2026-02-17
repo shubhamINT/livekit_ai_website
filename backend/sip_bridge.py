@@ -98,15 +98,20 @@ class RTPMediaBridge:
     Outbound: LiveKit AudioStream → resample 48k→8k → encode G.711 → UDP socket
     """
 
+    # Class-level lock to serialize RTP sends from multiple tracks
+    # (though we now only forward one track, this is a safety net)
+    _send_lock: asyncio.Lock | None = None
+
     def __init__(self, bind_ip: str, bind_port: int = 0):
         """
         Args:
-            bind_ip: IP address to bind the UDP socket to (should be the public IP).
+            bind_ip: IP address to bind the UDP socket to.
+                     Use '0.0.0.0' to bind on all interfaces (recommended for NAT).
             bind_port: Port to bind to. 0 = OS assigns a free port.
         """
-        # Create and bind UDP socket
+        # Create and bind UDP socket — always bind to 0.0.0.0 for NAT compatibility
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self._sock.bind((bind_ip, bind_port))
+        self._sock.bind(('0.0.0.0', bind_port))
         self._sock.setblocking(False)
 
         self.local_port = self._sock.getsockname()[1]
@@ -615,11 +620,16 @@ async def run_bridge(
     logger.info(f"[BRIDGE] Starting bridge for {phone_number} in room {room_name}")
 
     # ── Initialize components ───────────────────────────────────────────
-    rtp_bridge = RTPMediaBridge(bind_ip=EXOTEL_MEDIA_IP)
+    # Bind to 0.0.0.0 (the SDP still advertises EXOTEL_MEDIA_IP as the public address)
+    rtp_bridge = RTPMediaBridge(bind_ip='0.0.0.0')
     sip_client = ExotelSipClient(callee=phone_number, rtp_port=rtp_bridge.local_port)
 
     room = rtc.Room()
     forward_tasks: list[asyncio.Task] = []
+    # Track which agents already have a forwarding task to avoid duplicates
+    forwarded_agents: set[str] = set()
+    # Event to signal when the SIP call is actually answered (200 OK)
+    call_answered = asyncio.Event()
     sip_result = None
 
     try:
@@ -634,6 +644,21 @@ async def run_bridge(
             participant: rtc.RemoteParticipant,
         ):
             if track.kind == rtc.TrackKind.KIND_AUDIO:
+                # CRITICAL: Only forward ONE audio track per agent.
+                # The agent may publish multiple audio tracks:
+                #   1. Main agent speech (TTS output)
+                #   2. BackgroundAudioPlayer ambient/thinking sounds
+                # If we forward ALL of them, the RTP sequence numbers and
+                # timestamps get interleaved/corrupted, causing blank audio
+                # on the phone.
+                if participant.identity in forwarded_agents:
+                    logger.warning(
+                        f"[BRIDGE] Skipping duplicate audio track from {participant.identity} "
+                        f"(track: {publication.sid}) — already forwarding one track"
+                    )
+                    return
+
+                forwarded_agents.add(participant.identity)
                 logger.info(
                     f"[BRIDGE] Agent audio track subscribed: {participant.identity} "
                     f"(track: {publication.sid})"
@@ -691,6 +716,20 @@ async def run_bridge(
         else:
             logger.error(f"[BRIDGE] Invalid remote RTP endpoint: {remote_ip}:{remote_port}")
             return
+
+        # ── Step 5.5: Signal call answered via data message ─────────────
+        # The agent watches for this to know the phone was actually picked up.
+        # Without this, the agent sends TTS while the phone is still ringing.
+        call_answered.set()
+        try:
+            await room.local_participant.publish_data(
+                payload=json.dumps({"event": "call_answered", "phone": phone_number}).encode(),
+                topic="sip_bridge_events",
+                reliable=True,
+            )
+            logger.info("[BRIDGE] Sent 'call_answered' data message to room")
+        except Exception as e:
+            logger.warning(f"[BRIDGE] Failed to send call_answered data message: {e}")
 
         # ── Step 6: Bridge is active — keep alive ───────────────────────
         logger.info(

@@ -149,11 +149,28 @@ async def vyom_demos(ctx: JobContext):
 
         audio_ready = asyncio.Event()
 
-        @ctx.room.on("track_published")
-        def on_track_published(publication: rtc.RemoteTrackPublication, p: rtc.RemoteParticipant):
-            if p.identity == participant.identity and publication.kind == rtc.TrackKind.KIND_AUDIO:
-                logger.info("SIP/Bridge audio track published — call answered")
-                audio_ready.set()
+        if is_exotel_bridge:
+            # For Exotel bridge: wait for the actual "call_answered" data message
+            # from the SIP bridge (sent only after SIP 200 OK - phone picked up).
+            # The bridge publishes its audio track IMMEDIATELY on joining,
+            # which is BEFORE the phone even rings, so track_published is unreliable.
+            @ctx.room.on("data_received")
+            def on_data_received(data: rtc.DataPacket):
+                if data.topic == "sip_bridge_events":
+                    try:
+                        msg = json.loads(data.data.decode())
+                        if msg.get("event") == "call_answered":
+                            logger.info("Exotel bridge reported call answered (SIP 200 OK)")
+                            audio_ready.set()
+                    except (json.JSONDecodeError, TypeError):
+                        pass
+        else:
+            # For standard SIP calls: use the track_published approach
+            @ctx.room.on("track_published")
+            def on_track_published(publication: rtc.RemoteTrackPublication, p: rtc.RemoteParticipant):
+                if p.identity == participant.identity and publication.kind == rtc.TrackKind.KIND_AUDIO:
+                    logger.info("SIP audio track published — call answered")
+                    audio_ready.set()
 
         # --- Background Audio Start ---
         try:
@@ -162,16 +179,15 @@ async def vyom_demos(ctx: JobContext):
         except Exception as e:
             logger.error(f"Failed to start background audio: {e}")
 
-        @ctx.room.on("data_received")
-        def on_data_received(data: rtc.DataPacket):
-            if data.topic == "lk.transcription":
-                pass # Ignore transcription logs
-
         # --- INITIATING SPEECH ---
         if agent_type != "ambuja":
             if is_phone_call:
                 logger.info("Waiting for phone call to be answered (SIP or Exotel bridge)...")
-                await audio_ready.wait()
+                try:
+                    await asyncio.wait_for(audio_ready.wait(), timeout=60.0)
+                except asyncio.TimeoutError:
+                    logger.error("Timed out waiting for call to be answered (60s)")
+                    return
                 # Buffer for RTP stabilization - longer delay ensures welcome message is heard
                 await asyncio.sleep(2.0)
 
