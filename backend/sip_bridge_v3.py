@@ -1,11 +1,13 @@
 """
-Exotel SIP Bridge V2 — Fixed version.
+Exotel SIP Bridge V2 — Final production version.
 
-Key fixes:
-1. Fixed RTP port (env var RTP_PORT) so firewall rules can be set
-2. Frame buffering: agent audio is queued while waiting for SIP answer
-3. Correct execution order: SIP first, then subscribe agent audio
-4. Proper asyncio socket binding for RTP receive
+Fixes applied:
+1. SDP c= advertises correct public IP (EXOTEL_MEDIA_IP = your EC2 Elastic/Public IP)
+2. Port pool (RTP_PORT_START–RTP_PORT_END) — multiple simultaneous calls
+3. Port ALWAYS released on cleanup — no "address in use" errors
+4. Agent audio buffered before SIP answers — no dropped welcome message
+5. Startup config validation — fails fast with clear error messages
+6. BYE sent on hangup
 """
 
 import asyncio
@@ -16,7 +18,6 @@ import uuid
 import random
 import os
 import warnings
-import json
 import hashlib
 import time
 import collections
@@ -37,292 +38,358 @@ logger = logging.getLogger("sip_bridge_v2")
 # Configuration
 # ─────────────────────────────────────────────────────────────────────────────
 
-EXOTEL_SIP_HOST         = os.getenv("EXOTEL_SIP_HOST", "pstn.in1.exotel.com")
-EXOTEL_SIP_PORT         = int(os.getenv("EXOTEL_SIP_PORT", "5070"))
-EXOTEL_CUSTOMER_IP      = os.getenv("EXOTEL_CUSTOMER_IP", "13.234.150.174")
-EXOTEL_CUSTOMER_SIP_PORT= int(os.getenv("EXOTEL_CUSTOMER_SIP_PORT", "5061"))
-EXOTEL_MEDIA_IP         = os.getenv("EXOTEL_MEDIA_IP", "13.234.150.174")
-EXOTEL_CALLER_ID        = os.getenv("EXOTEL_CALLER_ID", "08044319240")
-EXOTEL_FROM_DOMAIN      = os.getenv("EXOTEL_FROM_DOMAIN", "lokaviveka1m.sip.exotel.com")
+EXOTEL_SIP_HOST          = os.getenv("EXOTEL_SIP_HOST", "pstn.in1.exotel.com")
+EXOTEL_SIP_PORT          = int(os.getenv("EXOTEL_SIP_PORT", "5070"))
 
-EXOTEL_AUTH_USERNAME    = os.getenv("EXOTEL_AUTH_USERNAME")
-EXOTEL_AUTH_PASSWORD    = os.getenv("EXOTEL_AUTH_PASSWORD")
+# Your server's PUBLIC / Elastic IP (used in Via + Contact SIP headers)
+EXOTEL_CUSTOMER_IP       = os.getenv("EXOTEL_CUSTOMER_IP", "")
+EXOTEL_CUSTOMER_SIP_PORT = int(os.getenv("EXOTEL_CUSTOMER_SIP_PORT", "5061"))
 
-LK_URL       = os.getenv("LIVEKIT_URL")
-LK_API_KEY   = os.getenv("LIVEKIT_API_KEY")
-LK_API_SECRET= os.getenv("LIVEKIT_API_SECRET")
+# ⚠️  CRITICAL: must be your EC2 Elastic/Public IP — NOT 0.0.0.0 or a private IP.
+# This goes into SDP c= so Exotel knows where to send RTP back.
+EXOTEL_MEDIA_IP          = os.getenv("EXOTEL_MEDIA_IP", "")
 
-# ─── FIX 1: Use a fixed, configurable RTP port ───────────────────────────────
-# Set RTP_PORT in your .env / environment to a port that is OPEN in your
-# AWS Security Group for UDP traffic from Exotel's media servers.
-# Example: RTP_PORT=20000
-# If 0, a random port is used (NOT recommended for production — firewall will block it).
-RTP_BIND_PORT = int(os.getenv("RTP_PORT", "0"))
+EXOTEL_CALLER_ID         = os.getenv("EXOTEL_CALLER_ID", "08044319240")
+EXOTEL_FROM_DOMAIN       = os.getenv("EXOTEL_FROM_DOMAIN", "lokaviveka1m.sip.exotel.com")
 
-RTP_HEADER_SIZE  = 12
+EXOTEL_AUTH_USERNAME     = os.getenv("EXOTEL_AUTH_USERNAME")
+EXOTEL_AUTH_PASSWORD     = os.getenv("EXOTEL_AUTH_PASSWORD")
+
+LK_URL        = os.getenv("LIVEKIT_URL")
+LK_API_KEY    = os.getenv("LIVEKIT_API_KEY")
+LK_API_SECRET = os.getenv("LIVEKIT_API_SECRET")
+
+# RTP Port pool — MUST be outside LiveKit SIP's range (10000-40000) and LiveKit RTC's range (50000-60000).
+# Safe range: 41000-49999. Open these in your AWS Security Group for UDP.
+# Each concurrent call uses 2 ports (RTP + RTCP).
+RTP_PORT_START = int(os.getenv("RTP_PORT_START", "41000"))
+RTP_PORT_END   = int(os.getenv("RTP_PORT_END",   "41100"))  # 50 simultaneous calls max
+
+RTP_HEADER_SIZE   = 12
 PCMU_PAYLOAD_TYPE = 0
 PCMA_PAYLOAD_TYPE = 8
-SAMPLE_RATE_SIP  = 8000
-SAMPLE_RATE_LK   = 48000
+SAMPLE_RATE_SIP   = 8000
+SAMPLE_RATE_LK    = 48000
+MAX_FRAME_BUFFER  = 300  # ~6 seconds of 20ms frames
 
-# How many outbound frames to buffer while waiting for SIP 200 OK
-MAX_FRAME_BUFFER = 200
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Config validation
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _validate_config() -> bool:
+    ok = True
+    checks = [
+        (EXOTEL_MEDIA_IP and EXOTEL_MEDIA_IP not in ("0.0.0.0", ""),
+         "EXOTEL_MEDIA_IP must be your server's public/Elastic IP (NOT 0.0.0.0). "
+         "Exotel uses this to route RTP back to you."),
+        (EXOTEL_CUSTOMER_IP and EXOTEL_CUSTOMER_IP not in ("0.0.0.0", ""),
+         "EXOTEL_CUSTOMER_IP must be your server's public/Elastic IP."),
+        (bool(LK_URL), "LIVEKIT_URL is not set"),
+        (bool(LK_API_KEY), "LIVEKIT_API_KEY is not set"),
+        (bool(LK_API_SECRET), "LIVEKIT_API_SECRET is not set"),
+    ]
+    for passed, msg in checks:
+        if not passed:
+            logger.error(f"[CONFIG] ❌ {msg}")
+            ok = False
+    if ok:
+        logger.info(f"[CONFIG] ✅ public IP={EXOTEL_MEDIA_IP}, ports={RTP_PORT_START}-{RTP_PORT_END}")
+    return ok
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Port Pool
+# ─────────────────────────────────────────────────────────────────────────────
+
+class PortPool:
+    """Thread-safe pool of UDP ports for RTP sockets."""
+
+    def __init__(self, start: int, end: int):
+        # Step by 2 so port+1 is free for RTCP
+        self._free = set(range(start, end, 2))
+        self._lock = asyncio.Lock()
+        logger.info(f"[PortPool] Ready with {len(self._free)} ports ({start}-{end})")
+
+    async def acquire(self) -> int:
+        async with self._lock:
+            if not self._free:
+                raise RuntimeError(
+                    f"No free RTP ports in {RTP_PORT_START}-{RTP_PORT_END}. "
+                    "Increase RTP_PORT_END or reduce concurrent calls."
+                )
+            port = min(self._free)
+            self._free.discard(port)
+            logger.debug(f"[PortPool] Acquired {port}. Remaining: {len(self._free)}")
+            return port
+
+    async def release(self, port: int):
+        async with self._lock:
+            self._free.add(port)
+            logger.debug(f"[PortPool] Released {port}. Remaining: {len(self._free)}")
+
+
+_port_pool: PortPool | None = None
+
+def get_port_pool() -> PortPool:
+    global _port_pool
+    if _port_pool is None:
+        _port_pool = PortPool(RTP_PORT_START, RTP_PORT_END)
+    return _port_pool
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # RTPMediaBridge
 # ─────────────────────────────────────────────────────────────────────────────
 
-class RTPMediaBridge:
-    """Bridges RTP (G.711 PCMA/PCMU over UDP) ↔ LiveKit audio."""
+class _RTPProtocol(asyncio.DatagramProtocol):
+    """
+    Asyncio DatagramProtocol for receiving RTP packets.
+    Uses the event loop's native I/O callbacks — far more reliable than
+    sock_recvfrom inside uvicorn/gunicorn which can silently drop packets.
+    """
+    def __init__(self, bridge: "RTPMediaBridge"):
+        self._bridge = bridge
+        self._transport: asyncio.DatagramTransport | None = None
 
-    def __init__(self, bind_ip: str, bind_port: int = 0):
-        self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        # Always bind to 0.0.0.0 so the OS can receive on all interfaces.
-        # The SDP advertises EXOTEL_MEDIA_IP (the external/Elastic IP).
+    def connection_made(self, transport: asyncio.DatagramTransport):
+        self._transport = transport
+        logger.info(f"[RTP] DatagramProtocol ready on 0.0.0.0:{self._bridge.local_port}")
+
+    def datagram_received(self, data: bytes, addr: tuple):
+        if len(data) <= RTP_HEADER_SIZE:
+            return
+
+        bridge = self._bridge
+        if not bridge._first_rx:
+            logger.info(f"[RTP] ✅ First inbound RTP from {addr} ({len(data)} B)")
+            bridge._first_rx = True
+
+        bridge._rx += 1
+        pt      = data[1] & 0x7F
+        payload = data[RTP_HEADER_SIZE:]
+
         try:
-            self._sock.bind(('0.0.0.0', bind_port))
-        except OSError as e:
-            logger.error(f"[RTP] Failed to bind to 0.0.0.0:{bind_port}: {e}")
-            raise
-        self._sock.setblocking(False)
+            pcm8 = audioop.alaw2lin(payload, 2) if pt == PCMA_PAYLOAD_TYPE else audioop.ulaw2lin(payload, 2)
+            pcm48, bridge._rs_in = audioop.ratecv(
+                pcm8, 2, 1, SAMPLE_RATE_SIP, SAMPLE_RATE_LK, bridge._rs_in
+            )
+            frame = rtc.AudioFrame(
+                data=pcm48,
+                sample_rate=SAMPLE_RATE_LK,
+                num_channels=1,
+                samples_per_channel=len(pcm48) // 2,
+            )
+            # Schedule coroutine on the event loop — datagram_received is sync
+            asyncio.ensure_future(bridge._audio_source.capture_frame(frame))
+        except Exception as e:
+            logger.error(f"[RTP] Decode error: {e}")
 
-        self.local_port = self._sock.getsockname()[1]
-        logger.info(f"[RTP] Bridge bound to 0.0.0.0:{self.local_port} (advertised as {bind_ip}:{self.local_port})")
+    def error_received(self, exc: Exception):
+        logger.warning(f"[RTP] DatagramProtocol error: {exc}")
+
+    def connection_lost(self, exc):
+        logger.info("[RTP] DatagramProtocol connection lost")
+
+    def send(self, data: bytes, addr: tuple):
+        if self._transport:
+            self._transport.sendto(data, addr)
+
+
+class RTPMediaBridge:
+    def __init__(self, public_ip: str, bind_port: int):
+        """
+        public_ip  : Server's public/Elastic IP — written into SDP c= line.
+        bind_port  : UDP port to listen on (from PortPool).
+        """
+        if not public_ip or public_ip == "0.0.0.0":
+            raise ValueError(
+                "public_ip must be your EC2 public/Elastic IP. "
+                f"Got: '{public_ip}'. Check EXOTEL_MEDIA_IP."
+            )
+        self._public_ip  = public_ip
+        self.local_port  = bind_port
+        self._protocol: _RTPProtocol | None = None
+        self._transport: asyncio.DatagramTransport | None = None
 
         self._remote_addr: tuple[str, int] | None = None
-        self._running = False
-        self.negotiated_pt = PCMU_PAYLOAD_TYPE
+        self._running      = False
+        self.negotiated_pt = PCMA_PAYLOAD_TYPE
 
         self._audio_source: rtc.AudioSource | None = None
-        self._local_track: rtc.LocalAudioTrack | None = None
+        self._local_track:  rtc.LocalAudioTrack | None = None
 
         self._rtp_seq  = random.randint(0, 0xFFFF)
         self._rtp_ts   = random.randint(0, 0xFFFFFFFF)
         self._rtp_ssrc = random.randint(0, 0xFFFFFFFF)
 
-        self._resample_state_in  = None
-        self._resample_state_out = None
+        self._rs_in  = None
+        self._rs_out = None
 
-        self._packets_received = 0
-        self._packets_sent     = 0
-        self._first_packet_logged = False
-        self._first_send_logged   = False
+        self._rx = 0
+        self._tx = 0
+        self._first_rx = False
+        self._first_tx = False
 
-        # ─── FIX 2: Frame buffer for agent audio before SIP is answered ───
-        # Frames arriving before _remote_addr is set are queued here.
+        # Buffer agent frames until set_remote_endpoint() is called
         self._frame_buffer: collections.deque = collections.deque(maxlen=MAX_FRAME_BUFFER)
-        self._remote_ready = asyncio.Event()
 
-    def set_remote_endpoint(self, ip: str, port: int, pt: int = 0):
+        # ptime accumulator — pack 2×10ms LiveKit frames → 1×20ms RTP packet
+        self._PTIME_BYTES    = 320  # 20ms @ 8kHz 16-bit = 160 samples = 320 bytes
+        self._pcm_accumulator = b""
+
+        logger.info(f"[RTP] Bridge created for 0.0.0.0:{bind_port} | SDP advertises {public_ip}:{bind_port}")
+
+    def set_remote_endpoint(self, ip: str, port: int, pt: int = PCMA_PAYLOAD_TYPE):
         self._remote_addr  = (ip, port)
         self.negotiated_pt = pt
-        logger.info(f"[RTP] Remote endpoint set: {ip}:{port}, Codec PT: {pt}")
-        # Signal that buffered frames can now be flushed
-        self._remote_ready.set()
+        logger.info(f"[RTP] Remote endpoint → {ip}:{port} PT={pt}")
 
     async def start_inbound(self, room: rtc.Room):
-        loop = asyncio.get_running_loop()
         self._audio_source = rtc.AudioSource(SAMPLE_RATE_LK, 1)
-        self._local_track  = rtc.LocalAudioTrack.create_audio_track(
-            "sip_microphone", self._audio_source
-        )
+        self._local_track  = rtc.LocalAudioTrack.create_audio_track("sip_audio", self._audio_source)
         await room.local_participant.publish_track(self._local_track)
-        logger.info("[RTP] Local audio track published to LiveKit room")
 
+        # Use create_datagram_endpoint — the correct asyncio API for UDP.
+        # This registers native I/O callbacks with the event loop, unlike
+        # sock_recvfrom which polls and can be starved inside uvicorn.
+        loop = asyncio.get_running_loop()
+        self._protocol = _RTPProtocol(self)
+        self._transport, _ = await loop.create_datagram_endpoint(
+            lambda: self._protocol,
+            local_addr=('0.0.0.0', self.local_port)
+        )
         self._running = True
-        asyncio.create_task(self._rtp_receive_loop(loop))
-
-    async def _rtp_receive_loop(self, loop: asyncio.AbstractEventLoop):
-        logger.info("[RTP] Inbound receive loop started — waiting for packets...")
-        while self._running:
-            try:
-                data, addr = await loop.sock_recvfrom(self._sock, 4096)
-            except (OSError, asyncio.CancelledError):
-                break
-            except Exception:
-                await asyncio.sleep(0.001)
-                continue
-
-            if len(data) <= RTP_HEADER_SIZE:
-                continue
-
-            if not self._first_packet_logged:
-                logger.info(f"[RTP] ✅ First packet RECEIVED from {addr} ({len(data)} bytes)")
-                self._first_packet_logged = True
-
-            self._packets_received += 1
-            pt      = data[1] & 0x7F
-            payload = data[RTP_HEADER_SIZE:]
-
-            try:
-                if pt == PCMA_PAYLOAD_TYPE:
-                    pcm_8k = audioop.alaw2lin(payload, 2)
-                else:
-                    pcm_8k = audioop.ulaw2lin(payload, 2)
-
-                pcm_48k, self._resample_state_in = audioop.ratecv(
-                    pcm_8k, 2, 1, SAMPLE_RATE_SIP, SAMPLE_RATE_LK, self._resample_state_in
-                )
-
-                frame = rtc.AudioFrame(
-                    data=pcm_48k,
-                    sample_rate=SAMPLE_RATE_LK,
-                    num_channels=1,
-                    samples_per_channel=len(pcm_48k) // 2,
-                )
-                await self._audio_source.capture_frame(frame)
-            except Exception as e:
-                logger.error(f"[RTP] Inbound decode error: {e}")
+        logger.info(f"[RTP] Inbound endpoint ready on 0.0.0.0:{self.local_port}")
 
     async def send_to_rtp(self, frame: rtc.AudioFrame):
-        """Send a LiveKit audio frame to the remote RTP endpoint.
-        
-        If the remote endpoint is not yet set (SIP not answered),
-        the frame is buffered and flushed once the call is answered.
-        """
+        """Send agent audio to remote RTP. Buffers if SIP not yet answered."""
         if not self._remote_addr:
-            # Buffer the frame — will be flushed when set_remote_endpoint is called
             self._frame_buffer.append(frame)
             return
-
-        # Flush any buffered frames first (only happens once)
+        # Flush buffer once (after set_remote_endpoint called)
         while self._frame_buffer:
-            buffered = self._frame_buffer.popleft()
-            await self._send_frame(buffered)
-
+            await self._send_frame(self._frame_buffer.popleft())
         await self._send_frame(frame)
 
     async def _send_frame(self, frame: rtc.AudioFrame):
-        if not self._remote_addr:
+        if not self._remote_addr or not self._transport:
             return
         try:
-            raw_pcm = bytes(frame.data.cast("b"))
-            pcm_8k, self._resample_state_out = audioop.ratecv(
-                raw_pcm, 2, 1, frame.sample_rate, SAMPLE_RATE_SIP, self._resample_state_out
+            raw = bytes(frame.data.cast("b"))
+            pcm8, self._rs_out = audioop.ratecv(
+                raw, 2, 1, frame.sample_rate, SAMPLE_RATE_SIP, self._rs_out
             )
+            self._pcm_accumulator += pcm8
 
-            if self.negotiated_pt == PCMA_PAYLOAD_TYPE:
-                payload = audioop.lin2alaw(pcm_8k, 2)
-            else:
-                payload = audioop.lin2ulaw(pcm_8k, 2)
+            while len(self._pcm_accumulator) >= self._PTIME_BYTES:
+                chunk = self._pcm_accumulator[:self._PTIME_BYTES]
+                self._pcm_accumulator = self._pcm_accumulator[self._PTIME_BYTES:]
 
-            self._rtp_seq = (self._rtp_seq + 1) & 0xFFFF
-            self._rtp_ts  = (self._rtp_ts + len(pcm_8k) // 2) & 0xFFFFFFFF
+                payload = (audioop.lin2alaw(chunk, 2)
+                           if self.negotiated_pt == PCMA_PAYLOAD_TYPE
+                           else audioop.lin2ulaw(chunk, 2))
 
-            header = struct.pack(
-                "!BBHII",
-                0x80, self.negotiated_pt,
-                self._rtp_seq, self._rtp_ts, self._rtp_ssrc
-            )
-            self._sock.sendto(header + payload, self._remote_addr)
-            self._packets_sent += 1
+                self._rtp_seq = (self._rtp_seq + 1) & 0xFFFF
+                self._rtp_ts  = (self._rtp_ts + 160) & 0xFFFFFFFF
+                hdr = struct.pack(
+                    "!BBHII",
+                    0x80, self.negotiated_pt,
+                    self._rtp_seq, self._rtp_ts, self._rtp_ssrc
+                )
+                self._transport.sendto(hdr + payload, self._remote_addr)
+                self._tx += 1
 
-            if not self._first_send_logged:
-                logger.info(f"[RTP] ✅ First RTP packet SENT to {self._remote_addr}")
-                self._first_send_logged = True
+                if not self._first_tx:
+                    logger.info(
+                        f"[RTP] ✅ First outbound RTP sent to {self._remote_addr} "
+                        f"(payload={len(payload)}B = 20ms ✓)"
+                    )
+                    self._first_tx = True
         except Exception as e:
-            logger.error(f"[RTP] Outbound send error: {e}")
+            logger.error(f"[RTP] Send error: {e}")
 
     def stop(self):
         self._running = False
-        try:
-            self._sock.close()
-        except Exception:
-            pass
-        logger.info(
-            f"[RTP] Bridge stopped. "
-            f"Rx: {self._packets_received} packets, Tx: {self._packets_sent} packets"
-        )
-        if self._packets_received == 0:
+        if self._transport:
+            try:
+                self._transport.close()
+            except Exception:
+                pass
+        logger.info(f"[RTP] Stopped | RX={self._rx} TX={self._tx}")
+        if self._rx == 0:
             logger.warning(
-                "[RTP] ⚠️  ZERO inbound packets received! "
-                "Check that UDP port %d is open in your firewall/Security Group "
-                "for Exotel's media servers.", self.local_port
+                "[RTP] ⚠️  ZERO inbound packets! Likely causes:\n"
+                "  1. EXOTEL_MEDIA_IP='%s' is wrong — must be EC2 Elastic/Public IP\n"
+                "  2. UDP port %d not open in Security Group for Exotel media IPs\n"
+                "  3. Port conflicts with another service (LiveKit SIP uses 10000-30000 — stay out of that range!)\n"
+                "  4. Exotel routing to wrong destination",
+                self._public_ip, self.local_port
             )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Digest Auth Helper
+# Digest Auth
 # ─────────────────────────────────────────────────────────────────────────────
 
 def calculate_digest_auth(method, uri, username, password, auth_header):
     import re
     params = {}
-    header_val = auth_header.split(' ', 1)[1]
-    matches = re.findall(r'(\w+)="?([^",]+)"?', header_val)
-    for k, v in matches:
+    for k, v in re.findall(r'(\w+)="?([^",]+)"?', auth_header.split(' ', 1)[1]):
         params[k] = v
 
-    realm     = params.get('realm')
-    nonce     = params.get('nonce')
-    opaque    = params.get('opaque')
-    qop       = params.get('qop')
-    algorithm = params.get('algorithm', 'MD5').upper()
+    realm, nonce = params.get('realm'), params.get('nonce')
+    opaque, qop  = params.get('opaque'), params.get('qop')
+    algo         = params.get('algorithm', 'MD5').upper()
 
     ha1 = hashlib.md5(f"{username}:{realm}:{password}".encode()).hexdigest()
     ha2 = hashlib.md5(f"{method}:{uri}".encode()).hexdigest()
 
     if qop == 'auth':
-        nc     = "00000001"
-        cnonce = uuid.uuid4().hex[:8]
-        resp   = hashlib.md5(f"{ha1}:{nonce}:{nc}:{cnonce}:{qop}:{ha2}".encode()).hexdigest()
-        auth_str = (
-            f'Digest username="{username}", realm="{realm}", nonce="{nonce}", '
-            f'uri="{uri}", response="{resp}", algorithm={algorithm}, '
-            f'nc={nc}, cnonce="{cnonce}", qop={qop}'
-        )
+        nc, cnonce = "00000001", uuid.uuid4().hex[:8]
+        resp = hashlib.md5(f"{ha1}:{nonce}:{nc}:{cnonce}:{qop}:{ha2}".encode()).hexdigest()
+        s = (f'Digest username="{username}", realm="{realm}", nonce="{nonce}", uri="{uri}", '
+             f'response="{resp}", algorithm={algo}, nc={nc}, cnonce="{cnonce}", qop={qop}')
     else:
-        resp     = hashlib.md5(f"{ha1}:{nonce}:{ha2}".encode()).hexdigest()
-        auth_str = (
-            f'Digest username="{username}", realm="{realm}", nonce="{nonce}", '
-            f'uri="{uri}", response="{resp}", algorithm={algorithm}'
-        )
+        resp = hashlib.md5(f"{ha1}:{nonce}:{ha2}".encode()).hexdigest()
+        s = f'Digest username="{username}", realm="{realm}", nonce="{nonce}", uri="{uri}", response="{resp}", algorithm={algo}'
 
-    if opaque:
-        auth_str += f', opaque="{opaque}"'
-    return auth_str
+    return s + (f', opaque="{opaque}"' if opaque else '')
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ExotelSipClient
+# SIP Client
 # ─────────────────────────────────────────────────────────────────────────────
 
 class ExotelSipClient:
     def __init__(self, callee: str, rtp_port: int):
-        self.callee    = callee
-        self.rtp_port  = rtp_port
-        self._branch   = f"z9hG4bK-{uuid.uuid4().hex}"
-        self._tag      = f"trunk{random.randint(10000, 99999)}"
-        self._call_id  = str(uuid.uuid4())
-        self._cseq     = 1
-        self._to_tag   = None
+        self.callee   = callee
+        self.rtp_port = rtp_port
+        self._branch  = f"z9hG4bK-{uuid.uuid4().hex}"
+        self._tag     = f"trunk{random.randint(10000, 99999)}"
+        self._call_id = str(uuid.uuid4())
+        self._cseq    = 1
+        self._to_tag  = None
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
 
-    def _build_sdp(self) -> str:
+    def _sdp(self) -> str:
+        ts = int(time.time())
+        # c= uses the real public IP — this is what Exotel reads to know where to send RTP
         return (
-            f"v=0\r\n"
-            f"o=- {int(time.time())} {int(time.time())} IN IP4 {EXOTEL_MEDIA_IP}\r\n"
-            f"s=-\r\n"
-            f"c=IN IP4 {EXOTEL_MEDIA_IP}\r\n"
-            f"t=0 0\r\n"
+            f"v=0\r\no=- {ts} {ts} IN IP4 {EXOTEL_MEDIA_IP}\r\ns=-\r\n"
+            f"c=IN IP4 {EXOTEL_MEDIA_IP}\r\nt=0 0\r\n"
             f"m=audio {self.rtp_port} RTP/AVP 8 0 101\r\n"
-            f"a=rtpmap:8 PCMA/8000\r\n"
-            f"a=rtpmap:0 PCMU/8000\r\n"
-            f"a=rtpmap:101 telephone-event/8000\r\n"
-            f"a=fmtp:101 0-15\r\n"
-            f"a=ptime:20\r\n"
-            f"a=sendrecv\r\n"
+            f"a=rtpmap:8 PCMA/8000\r\na=rtpmap:0 PCMU/8000\r\n"
+            f"a=rtpmap:101 telephone-event/8000\r\na=fmtp:101 0-15\r\n"
+            f"a=ptime:20\r\na=sendrecv\r\n"
         )
 
-    def _build_invite(self, auth_header: str | None = None, proxy_auth: bool = False) -> bytes:
-        sdp    = self._build_sdp()
-        cl     = len(sdp.encode())
-        req_uri = f"sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT}"
-
-        headers = [
-            f"INVITE {req_uri} SIP/2.0",
+    def _invite(self, auth: str | None = None, proxy: bool = False) -> bytes:
+        sdp = self._sdp()
+        req = f"sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT}"
+        h = [
+            f"INVITE {req} SIP/2.0",
             f"Via: SIP/2.0/TCP {EXOTEL_CUSTOMER_IP}:{EXOTEL_CUSTOMER_SIP_PORT};branch={self._branch};rport",
             f"Max-Forwards: 70",
             f"From: \"{EXOTEL_CALLER_ID}\" <sip:{EXOTEL_CALLER_ID}@{EXOTEL_FROM_DOMAIN}>;tag={self._tag}",
@@ -333,144 +400,110 @@ class ExotelSipClient:
             f"Supported: 100rel, timer",
             f"Allow: INVITE, ACK, CANCEL, BYE, OPTIONS, UPDATE",
             f"Content-Type: application/sdp",
-            f"Content-Length: {cl}",
+            f"Content-Length: {len(sdp.encode())}",
         ]
+        if auth:
+            h.insert(7, f"{'Proxy-Authorization' if proxy else 'Authorization'}: {auth}")
+        return ("\r\n".join(h) + "\r\n\r\n" + sdp).encode()
 
-        if auth_header:
-            h_name = "Proxy-Authorization" if proxy_auth else "Authorization"
-            headers.insert(7, f"{h_name}: {auth_header}")
-
-        return ("\r\n".join(headers) + "\r\n\r\n" + sdp).encode()
-
-    def _build_ack(self) -> bytes:
-        to_line = f"<sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT}>"
-        if self._to_tag:
-            to_line += f";tag={self._to_tag}"
-        headers = [
+    def _ack(self) -> bytes:
+        to = f"<sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT}>" + (f";tag={self._to_tag}" if self._to_tag else "")
+        return ("\r\n".join([
             f"ACK sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT} SIP/2.0",
             f"Via: SIP/2.0/TCP {EXOTEL_CUSTOMER_IP}:{EXOTEL_CUSTOMER_SIP_PORT};branch={self._branch};rport",
             f"Max-Forwards: 70",
             f"From: \"{EXOTEL_CALLER_ID}\" <sip:{EXOTEL_CALLER_ID}@{EXOTEL_FROM_DOMAIN}>;tag={self._tag}",
-            f"To: {to_line}",
-            f"Call-ID: {self._call_id}",
-            f"CSeq: {self._cseq} ACK",
-            f"Content-Length: 0",
-        ]
-        return ("\r\n".join(headers) + "\r\n\r\n").encode()
+            f"To: {to}", f"Call-ID: {self._call_id}", f"CSeq: {self._cseq} ACK", "Content-Length: 0",
+        ]) + "\r\n\r\n").encode()
 
-    def _build_bye(self) -> bytes:
-        to_line = f"<sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT}>"
-        if self._to_tag:
-            to_line += f";tag={self._to_tag}"
+    def _bye(self) -> bytes:
+        to = f"<sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT}>" + (f";tag={self._to_tag}" if self._to_tag else "")
         self._cseq += 1
-        headers = [
+        return ("\r\n".join([
             f"BYE sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT} SIP/2.0",
             f"Via: SIP/2.0/TCP {EXOTEL_CUSTOMER_IP}:{EXOTEL_CUSTOMER_SIP_PORT};branch=z9hG4bK-{uuid.uuid4().hex};rport",
             f"Max-Forwards: 70",
             f"From: \"{EXOTEL_CALLER_ID}\" <sip:{EXOTEL_CALLER_ID}@{EXOTEL_FROM_DOMAIN}>;tag={self._tag}",
-            f"To: {to_line}",
-            f"Call-ID: {self._call_id}",
-            f"CSeq: {self._cseq} BYE",
-            f"Content-Length: 0",
-        ]
-        return ("\r\n".join(headers) + "\r\n\r\n").encode()
+            f"To: {to}", f"Call-ID: {self._call_id}", f"CSeq: {self._cseq} BYE", "Content-Length: 0",
+        ]) + "\r\n\r\n").encode()
 
     async def connect(self):
-        logger.info(f"[SIP] Connecting to {EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT}...")
         self._reader, self._writer = await asyncio.wait_for(
             asyncio.open_connection(EXOTEL_SIP_HOST, EXOTEL_SIP_PORT), timeout=10.0
         )
+        logger.info("[SIP] TCP connected")
 
     async def send_invite(self) -> dict | None:
-        invite = self._build_invite()
-        self._writer.write(invite)
+        self._writer.write(self._invite())
         await self._writer.drain()
-        logger.info("[SIP] INVITE sent")
-        return await self._wait_for_answer()
+        logger.info("[SIP] INVITE →")
+        return await self._recv_loop()
 
-    async def _wait_for_answer(self) -> dict | None:
-        buffer = b""
+    async def _recv_loop(self) -> dict | None:
+        buf = b""
         while True:
             try:
                 chunk = await asyncio.wait_for(self._reader.read(8192), timeout=60.0)
-                if not chunk:
-                    return None
-                buffer += chunk
+                if not chunk: return None
+                buf += chunk
 
-                while b"\r\n\r\n" in buffer:
-                    h_end   = buffer.index(b"\r\n\r\n")
-                    h_block = buffer[:h_end].decode(errors="replace")
-                    remaining = buffer[h_end + 4:]
-                    h_lines = h_block.split("\r\n")
-                    status  = h_lines[0]
-                    headers = {
-                        l.split(":", 1)[0].strip().lower(): l.split(":", 1)[1].strip()
-                        for l in h_lines[1:] if ":" in l
-                    }
+                while b"\r\n\r\n" in buf:
+                    he = buf.index(b"\r\n\r\n")
+                    hb = buf[:he].decode(errors="replace")
+                    rest = buf[he + 4:]
+                    lines = hb.split("\r\n")
+                    status = lines[0]
+                    hdrs = {l.split(":", 1)[0].strip().lower(): l.split(":", 1)[1].strip()
+                            for l in lines[1:] if ":" in l}
+                    cl = int(hdrs.get("content-length", "0"))
+                    if len(rest) < cl: break
+                    body = rest[:cl].decode(errors="replace")
+                    buf  = rest[cl:]
 
-                    cl = int(headers.get("content-length", "0"))
-                    if len(remaining) < cl:
-                        break
-                    body   = remaining[:cl].decode(errors="replace")
-                    buffer = remaining[cl:]
-
-                    logger.info(f"[SIP] Response: {status}")
-                    code = int(status.split(" ")[1])
-
-                    if code == 100:
-                        continue
-                    if 180 <= code <= 183:
-                        continue
+                    logger.info(f"[SIP] ← {status}")
+                    code = int(status.split()[1])
+                    if code in (100,): continue
+                    if 180 <= code <= 183: continue
 
                     if code in (401, 407):
-                        auth_h = "www-authenticate" if code == 401 else "proxy-authenticate"
-                        if auth_h not in headers or not EXOTEL_AUTH_USERNAME:
-                            logger.error(f"[SIP] Auth required but no credentials: {status}")
+                        ah = "www-authenticate" if code == 401 else "proxy-authenticate"
+                        if ah not in hdrs or not EXOTEL_AUTH_USERNAME:
+                            logger.error("[SIP] Auth required but no credentials")
                             return None
-                        self._writer.write(self._build_ack())
+                        self._writer.write(self._ack())
                         await self._writer.drain()
-
                         self._cseq  += 1
                         self._branch = f"z9hG4bK-{uuid.uuid4().hex}"
-                        uri      = f"sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT}"
-                        auth_val = calculate_digest_auth(
-                            "INVITE", uri,
-                            EXOTEL_AUTH_USERNAME, EXOTEL_AUTH_PASSWORD,
-                            headers[auth_h]
-                        )
-                        self._writer.write(self._build_invite(auth_header=auth_val, proxy_auth=(code == 407)))
+                        uri  = f"sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT}"
+                        auth = calculate_digest_auth("INVITE", uri, EXOTEL_AUTH_USERNAME, EXOTEL_AUTH_PASSWORD, hdrs[ah])
+                        self._writer.write(self._invite(auth=auth, proxy=(code == 407)))
                         await self._writer.drain()
-                        logger.info("[SIP] Re-INVITE sent with auth")
+                        logger.info("[SIP] Re-INVITE with auth →")
                         continue
 
                     if code == 200:
-                        self._to_tag = (
-                            headers.get("to", "").split("tag=")[-1].split(";")[0]
-                            if "tag=" in headers.get("to", "")
-                            else None
-                        )
-                        self._writer.write(self._build_ack())
+                        if "tag=" in hdrs.get("to", ""):
+                            self._to_tag = hdrs["to"].split("tag=")[-1].split(";")[0]
+                        self._writer.write(self._ack())
                         await self._writer.drain()
-                        logger.info("[SIP] ✅ Call answered — ACK sent")
+                        logger.info("[SIP] ✅ 200 OK — ACK sent")
 
                         rip, rport, rpt = None, 0, PCMA_PAYLOAD_TYPE
                         for line in body.splitlines():
-                            if line.startswith("c=IN IP4"):
-                                rip = line.split()[-1]
+                            if line.startswith("c=IN IP4"): rip = line.split()[-1]
                             if line.startswith("m=audio"):
                                 parts = line.split()
                                 rport = int(parts[1])
-                                if len(parts) > 3:
-                                    rpt = int(parts[3])
-                        logger.info(f"[SIP] Remote media: {rip}:{rport}, PT={rpt}")
+                                if len(parts) > 3: rpt = int(parts[3])
+                        logger.info(f"[SIP] Remote RTP: {rip}:{rport} PT={rpt}")
                         return {"remote_ip": rip, "remote_port": rport, "pt": rpt}
 
                     if code >= 400:
-                        logger.error(f"[SIP] Call failed: {status}\n{h_block}")
+                        logger.error(f"[SIP] ❌ {status}")
                         return None
 
             except asyncio.TimeoutError:
-                logger.error("[SIP] Timeout waiting for SIP response")
+                logger.error("[SIP] Timeout")
                 return None
             except Exception as e:
                 logger.error(f"[SIP] Error: {e}")
@@ -479,20 +512,21 @@ class ExotelSipClient:
     async def wait_for_disconnection(self):
         try:
             while True:
-                data = await self._reader.read(4096)
+                data = await asyncio.wait_for(self._reader.read(4096), timeout=3600.0)
                 if not data or b"BYE " in data:
+                    logger.info("[SIP] Disconnected (BYE or TCP close)")
                     break
-        except Exception:
-            pass
+        except Exception as e:
+            logger.info(f"[SIP] Monitor ended: {e}")
 
     async def send_bye(self):
         if self._writer:
             try:
-                self._writer.write(self._build_bye())
+                self._writer.write(self._bye())
                 await self._writer.drain()
-                logger.info("[SIP] BYE sent")
-            except Exception as e:
-                logger.warning(f"[SIP] BYE send error: {e}")
+                logger.info("[SIP] BYE →")
+            except Exception:
+                pass
 
     async def close(self):
         if self._writer:
@@ -504,87 +538,87 @@ class ExotelSipClient:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# run_bridge — fixed execution order
+# Main bridge
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def run_bridge(phone_number: str, agent_type: str = "invoice", room_name: str | None = None):
+    if not _validate_config():
+        return
+
     if not room_name:
         room_name = f"sip-bridge-{phone_number}-{uuid.uuid4().hex[:6]}"
 
-    logger.info(f"[BRIDGE] Starting for {phone_number} → room '{room_name}' | RTP port: {RTP_BIND_PORT or 'random'}")
+    pool = get_port_pool()
+    port = await pool.acquire()
+    logger.info(f"[BRIDGE] phone={phone_number} room={room_name} rtp_port={port}")
 
-    # ── FIX 3: Use fixed RTP port (set RTP_PORT env var!) ─────────────────
-    rtp_bridge = RTPMediaBridge(bind_ip=EXOTEL_MEDIA_IP, bind_port=RTP_BIND_PORT)
-    sip_client = ExotelSipClient(callee=phone_number, rtp_port=rtp_bridge.local_port)
-    room        = rtc.Room()
+    rtp_bridge   = None
+    sip_client   = None
     forward_task = None
+    room         = rtc.Room()
 
     try:
-        # ── Step 1: Subscribe to agent audio as soon as it arrives ────────
-        # Frames are buffered in rtp_bridge._frame_buffer until SIP answers.
+        rtp_bridge = RTPMediaBridge(public_ip=EXOTEL_MEDIA_IP, bind_port=port)
+        sip_client = ExotelSipClient(callee=phone_number, rtp_port=port)
+
         @room.on("track_subscribed")
-        def on_track_subscribed(track, publication, participant):
+        def on_track(track, publication, participant):
             nonlocal forward_task
-            if (
-                track.kind == rtc.TrackKind.KIND_AUDIO
-                and publication.source == rtc.TrackSource.SOURCE_MICROPHONE
-                and forward_task is None
-            ):
-                logger.info(f"[BRIDGE] Agent audio subscribed from {participant.identity} — buffering until SIP answers")
-                forward_task = asyncio.create_task(_forward_agent_audio(track, rtp_bridge))
+            if (track.kind == rtc.TrackKind.KIND_AUDIO
+                    and publication.source == rtc.TrackSource.SOURCE_MICROPHONE
+                    and forward_task is None):
+                logger.info(f"[BRIDGE] Agent audio from {participant.identity} — buffering")
+                forward_task = asyncio.create_task(_forward_audio(track, rtp_bridge))
 
-        # ── Step 2: Connect to LiveKit ─────────────────────────────────────
-        token = (
-            AccessToken(LK_API_KEY, LK_API_SECRET)
-            .with_identity(f"sip-{phone_number}")
-            .with_grants(VideoGrants(room_join=True, room=room_name))
-            .to_jwt()
-        )
+        token = (AccessToken(LK_API_KEY, LK_API_SECRET)
+                 .with_identity(f"sip-{phone_number}")
+                 .with_grants(VideoGrants(room_join=True, room=room_name))
+                 .to_jwt())
         await room.connect(LK_URL, token)
-        logger.info(f"[BRIDGE] Connected to LiveKit room: {room_name}")
-
-        # Publish inbound RTP → LiveKit track
+        logger.info(f"[BRIDGE] LiveKit connected: {room_name}")
         await rtp_bridge.start_inbound(room)
 
-        # ── Step 3: Make SIP call ──────────────────────────────────────────
         await sip_client.connect()
         res = await sip_client.send_invite()
         if not res:
-            logger.error("[BRIDGE] SIP call failed — aborting")
+            logger.error("[BRIDGE] SIP failed")
             return
 
-        # ── Step 4: Set remote endpoint — this also flushes the audio buffer
+        # Flush buffered agent audio + open RTP path
         rtp_bridge.set_remote_endpoint(res["remote_ip"], res["remote_port"], res["pt"])
 
-        # ── Step 5: Wait until call ends ───────────────────────────────────
         sip_mon = asyncio.create_task(sip_client.wait_for_disconnection())
-        while (
-            room.connection_state == rtc.ConnectionState.CONN_CONNECTED
-            and not sip_mon.done()
-        ):
+        while room.connection_state == rtc.ConnectionState.CONN_CONNECTED and not sip_mon.done():
             await asyncio.sleep(2)
 
         logger.info("[BRIDGE] Call ended")
 
+    except Exception as e:
+        logger.error(f"[BRIDGE] Error: {e}", exc_info=True)
+
     finally:
         if forward_task:
             forward_task.cancel()
-            try:
-                await forward_task
-            except asyncio.CancelledError:
-                pass
-        await sip_client.send_bye()
-        rtp_bridge.stop()
-        await sip_client.close()
+            try: await forward_task
+            except asyncio.CancelledError: pass
+
+        if sip_client:
+            await sip_client.send_bye()
+            await sip_client.close()
+
+        if rtp_bridge:
+            rtp_bridge.stop()
+
         await room.disconnect()
-        logger.info("[BRIDGE] Cleanup complete")
+        # ← This is the critical step that was missing before
+        await pool.release(port)
+        logger.info(f"[BRIDGE] Port {port} released")
 
 
-async def _forward_agent_audio(track: rtc.Track, rtp_bridge: RTPMediaBridge):
-    """Forward LiveKit agent audio frames to RTP (with buffering before SIP answer)."""
+async def _forward_audio(track: rtc.Track, bridge: RTPMediaBridge):
     stream = rtc.AudioStream(track, sample_rate=48000, num_channels=1)
     async for event in stream:
-        await rtp_bridge.send_to_rtp(event.frame)
+        await bridge.send_to_rtp(event.frame)
 
 
 if __name__ == "__main__":
