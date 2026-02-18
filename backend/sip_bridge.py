@@ -459,6 +459,8 @@ class ExotelSipClient:
 
         invite = self._build_invite()
         logger.info(f"[SIP] Sending INVITE to {self.callee}...")
+        invite_headers = invite.decode().split("\r\n\r\n")[0]
+        logger.debug(f"[SIP] INVITE Headers:\n{invite_headers}")
         self._writer.write(invite)
         await self._writer.drain()
 
@@ -551,10 +553,9 @@ class ExotelSipClient:
                         "to_tag": to_tag,
                     }
 
-                elif status_line.startswith("SIP/2.0 4") or \
-                     status_line.startswith("SIP/2.0 5") or \
-                     status_line.startswith("SIP/2.0 6"):
+                elif status_line.split(" ")[1].startswith(("4", "5", "6")):
                     logger.error(f"[SIP] Call failed: {status_line}")
+                    logger.error(f"[SIP] Error Details:\n{header_block}")
                     return None
 
     def _parse_sdp(self, sdp: str) -> tuple[str | None, int]:
