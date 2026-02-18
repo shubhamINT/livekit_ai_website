@@ -204,14 +204,20 @@ class RTPMediaBridge:
         self._local_track  = rtc.LocalAudioTrack.create_audio_track("sip_audio", self._audio_source)
         await room.local_participant.publish_track(self._local_track)
         self._running = True
-        asyncio.create_task(self._recv_loop())
+        task = asyncio.create_task(self._recv_loop())
+        task.add_done_callback(
+            lambda t: logger.error(f"[RTP] recv_loop DIED: {t.exception()}") 
+            if not t.cancelled() and t.exception() else None
+        )
         logger.info(f"[RTP] Inbound loop started, listening on 0.0.0.0:{self.local_port}")
 
     async def _recv_loop(self):
         loop = asyncio.get_running_loop()
+        logger.info(f"[RTP] recv_loop STARTED port={self.local_port}")
         while self._running:
             try:
                 data, addr = await loop.sock_recvfrom(self._sock, 4096)
+                logger.info(f"[RTP] READ {len(data)} bytes from {addr}") 
             except (OSError, asyncio.CancelledError):
                 break
             except Exception:
