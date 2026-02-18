@@ -21,6 +21,7 @@ import warnings
 import hashlib
 import time
 import collections
+import json
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", DeprecationWarning)
@@ -62,8 +63,8 @@ LK_API_SECRET = os.getenv("LIVEKIT_API_SECRET")
 # RTP Port pool — MUST be outside LiveKit SIP's range (10000-40000) and LiveKit RTC's range (50000-60000).
 # Safe range: 41000-49999. Open these in your AWS Security Group for UDP.
 # Each concurrent call uses 2 ports (RTP + RTCP).
-RTP_PORT_START = int(os.getenv("RTP_PORT_START", "41000"))
-RTP_PORT_END   = int(os.getenv("RTP_PORT_END",   "41100"))  # 50 simultaneous calls max
+RTP_PORT_START = int(os.getenv("SIP_BRIDGE_PORT_RANGE_START", os.getenv("RTP_PORT_START", "31000")))
+RTP_PORT_END   = int(os.getenv("SIP_BRIDGE_PORT_RANGE_END", os.getenv("RTP_PORT_END", "31100")))  # 50 simultaneous calls max
 
 RTP_HEADER_SIZE   = 12
 PCMU_PAYLOAD_TYPE = 0
@@ -561,6 +562,7 @@ async def run_bridge(phone_number: str, agent_type: str = "invoice", room_name: 
 
         token = (AccessToken(LK_API_KEY, LK_API_SECRET)
                  .with_identity(f"sip-{phone_number}")
+                 .with_metadata(json.dumps({"source": "exotel_bridge"}))
                  .with_grants(VideoGrants(room_join=True, room=room_name))
                  .to_jwt())
         await room.connect(LK_URL, token)
@@ -575,6 +577,16 @@ async def run_bridge(phone_number: str, agent_type: str = "invoice", room_name: 
 
         # Flush buffered agent audio + open RTP path
         rtp_bridge.set_remote_endpoint(res["remote_ip"], res["remote_port"], res["pt"])
+
+        # Notify agent that call is answered
+        try:
+            await room.local_participant.publish_data(
+                json.dumps({"event": "call_answered"}).encode(),
+                topic="sip_bridge_events"
+            )
+            logger.info("[BRIDGE] Published call_answered event")
+        except Exception as e:
+            logger.error(f"[BRIDGE] Failed to publish call_answered event: {e}")
 
         sip_mon = asyncio.create_task(sip_client.wait_for_disconnection())
         while room.connection_state == rtc.ConnectionState.CONN_CONNECTED and not sip_mon.done():
