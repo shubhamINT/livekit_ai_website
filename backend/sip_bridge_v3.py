@@ -76,7 +76,7 @@ PCMA_PAYLOAD_TYPE = 8
 SAMPLE_RATE_SIP = 8000
 SAMPLE_RATE_LK = 48000
 MAX_FRAME_BUFFER = 300  # ~6 seconds of 20ms frames
-NO_RTP_AFTER_ANSWER_SECONDS = int(os.getenv("NO_RTP_AFTER_ANSWER_SECONDS", "12"))
+NO_RTP_AFTER_ANSWER_SECONDS = int(os.getenv("NO_RTP_AFTER_ANSWER_SECONDS", "60"))
 INBOUND_SIP_LISTEN = os.getenv("INBOUND_SIP_LISTEN", "true").lower() in (
     "1",
     "true",
@@ -231,11 +231,14 @@ class RTPMediaBridge:
         await room.local_participant.publish_track(self._local_track)
         self._running = True
         task = asyncio.create_task(self._recv_loop())
-        task.add_done_callback(
-            lambda t: logger.error(f"[RTP] recv_loop DIED: {t.exception()}")
-            if not t.cancelled() and t.exception()
-            else None
-        )
+        def _on_recv_done(t: asyncio.Task):
+            if t.cancelled():
+                logger.info("[RTP] recv_loop cancelled")
+            elif t.exception():
+                logger.error(f"[RTP] recv_loop DIED", exc_info=t.exception())
+            else:
+                logger.info("[RTP] recv_loop exited cleanly")
+        task.add_done_callback(_on_recv_done)
         logger.info(
             f"[RTP] Inbound loop started, listening on 0.0.0.0:{self.local_port}"
         )
@@ -246,10 +249,13 @@ class RTPMediaBridge:
         while self._running:
             try:
                 data, addr = await loop.sock_recvfrom(self._sock, 4096)
-                logger.info(f"[RTP] READ {len(data)} bytes from {addr}")
-            except (OSError, asyncio.CancelledError):
+            except asyncio.CancelledError:
                 break
-            except Exception:
+            except OSError as e:
+                logger.error(f"[RTP] Socket OSError (fatal): {e}")
+                break  # socket is dead, stop loop
+            except Exception as e:
+                logger.error(f"[RTP] recv_loop unexpected error: {e}", exc_info=True)
                 await asyncio.sleep(0.001)
                 continue
 
@@ -280,10 +286,12 @@ class RTPMediaBridge:
                     num_channels=1,
                     samples_per_channel=len(pcm48) // 2,
                 )
-                # Fire and forget — don't block recv_loop on LiveKit backpressure
-                asyncio.ensure_future(self._audio_source.capture_frame(frame))
+                # CRITICAL FIX: await instead of ensure_future.
+                # ensure_future was flooding the event loop with 300 unawaited coroutines
+                # (the flushed buffer), starving sock_recvfrom of CPU time → RX=0
+                await self._audio_source.capture_frame(frame)
             except Exception as e:
-                logger.error(f"[RTP] Decode error: {e}")
+                logger.error(f"[RTP] Decode error: {e}", exc_info=True)
 
     async def send_to_rtp(self, frame: rtc.AudioFrame):
         """Send agent audio to remote RTP. Buffers if SIP not yet answered."""
