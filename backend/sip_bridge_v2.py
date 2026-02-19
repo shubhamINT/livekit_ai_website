@@ -663,7 +663,7 @@ class ExotelSipClient:
         try:
             buf = b""
             while True:
-                data = await asyncio.wait_for(self._reader.read(4096), timeout=3600.0)
+                data = await asyncio.wait_for(self._reader.read(4096), timeout=30.0)
                 if not data:
                     logger.info("[SIP] Disconnected (TCP close)")
                     break
@@ -884,18 +884,20 @@ async def run_bridge(
             if inbound_bye and inbound_bye.is_set():
                 logger.info("[SIP] Inbound BYE received")
                 break
-            if NO_RTP_AFTER_ANSWER_SECONDS > 0:
-                since_rx = rtp_bridge.seconds_since_rx()
-                if (
-                    since_rx is None
-                    and (time.time() - answered_at) > NO_RTP_AFTER_ANSWER_SECONDS
-                ):
-                    logger.error(
-                        "[RTP] No inbound RTP after answer for %ss; ending call",
-                        NO_RTP_AFTER_ANSWER_SECONDS,
-                    )
-                    break
-            await asyncio.sleep(2)
+
+            since_rx = rtp_bridge.seconds_since_rx()
+
+            # No RTP ever arrived after 60s — call never connected properly
+            if since_rx is None and (time.time() - answered_at) > 60:
+                logger.error("[RTP] No inbound RTP after 60s — ending call")
+                break
+
+            # RTP was flowing but stopped for 20s — caller hung up
+            if since_rx is not None and since_rx > 20:
+                logger.info(f"[RTP] No audio for {since_rx:.0f}s — caller hung up, ending call")
+                break
+
+            await asyncio.sleep(1)
 
         logger.info("[BRIDGE] Call ended")
 
