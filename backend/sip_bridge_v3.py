@@ -292,6 +292,10 @@ class RTPMediaBridge:
                     if pt == PCMA_PAYLOAD_TYPE
                     else audioop.ulaw2lin(payload, 2)
                 )
+
+                # Boost volume — phone audio is often very quiet after G.711 decode
+                pcm8 = audioop.mul(pcm8, 2, 3.0)  # 3x amplification, tune as needed
+
                 pcm48, self._rs_in = audioop.ratecv(
                     pcm8, 2, 1, SAMPLE_RATE_SIP, SAMPLE_RATE_LK, self._rs_in
                 )
