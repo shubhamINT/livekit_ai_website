@@ -67,14 +67,11 @@ async def run_bridge(
         @room.on("track_subscribed")
         def on_track(track, publication, participant):
             nonlocal forward_task
-            # if (
-            #     track.kind == rtc.TrackKind.KIND_AUDIO
-            #     and publication.source == rtc.TrackSource.SOURCE_MICROPHONE
-            #     and forward_task is None
-            # ):
-
-            # Forward all audio tracks
-            if track.kind == rtc.TrackKind.KIND_AUDIO:
+            if (
+                track.kind == rtc.TrackKind.KIND_AUDIO
+                and publication.source == rtc.TrackSource.SOURCE_MICROPHONE
+                and forward_task is None
+            ):
                 logger.info(
                     f"[BRIDGE] Agent audio from {participant.identity} — buffering"
                 )
