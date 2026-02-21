@@ -82,6 +82,16 @@ async def handle_inbound_call(
         f"[INBOUND] call-id={call_id} phone={phone_number} room={room_name} rtp_port={port}"
     )
 
+    try:
+        from services.lvk_services import create_room, create_agent_dispatch
+        room_metadata = {"call_type": "inbound", "agent": agent_type, "phone": phone_number, "trunk": "exotel"}
+        await create_room(room_name=room_name, agent=agent_type, empty_timeout=60, max_participants=3, metadata=room_metadata)
+        dispatch_metadata = {"agent": agent_type, "phone": phone_number, "call_type": "inbound"}
+        logger.info(f"[INBOUND] Creating dispatch for agent {agent_type} in room {room_name}")
+        await create_agent_dispatch(room=room_name, agent_name="vyom_demos", metadata=dispatch_metadata)
+    except Exception as e:
+        logger.error(f"[INBOUND] Failed to create room/dispatch: {e}")
+
     rtp_bridge = None
     forward_task = None
     inbound_bye = None
