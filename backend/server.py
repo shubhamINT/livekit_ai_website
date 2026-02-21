@@ -12,7 +12,7 @@ from livekit.api import AccessToken, VideoGrants
 from pydantic import BaseModel
 from api_data_structure.structure import OutboundCallRequest, OutboundTrunkCreate, SIPTestRequest
 import asyncio
-
+from contextlib import asynccontextmanager
 from custom_sip_reach.inbound_listener import ensure_inbound_server
 
 # Import the outbound call function
@@ -32,7 +32,14 @@ logger = logging.getLogger(__name__)
 
 load_dotenv(override=True)
 
-app = FastAPI(title="LiveKit Token Server")
+@asynccontextmanager
+async def lifespan(app):
+    # Startup: your original startup logic here
+    logger.info("Starting up Inbound SIP Listener...")
+    asyncio.create_task(ensure_inbound_server())
+    yield
+
+app = FastAPI(title="LiveKit Token Server", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -42,11 +49,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.on_event("startup")
-async def startup_event():
-    """Start the inbound SIP TCP listener when the FASTAPI server boots up."""
-    logger.info("Starting up Inbound SIP Listener...")
-    asyncio.create_task(ensure_inbound_server())
+# @app.on_event("startup")
+# async def startup_event():
+#     """Start the inbound SIP TCP listener when the FASTAPI server boots up."""
+#     logger.info("Starting up Inbound SIP Listener...")
+#     asyncio.create_task(ensure_inbound_server())
 
 ## The agent currently supported
 ALLOWED_AGENTS = {"web", "invoice", "restaurant", "bank", "tour", 
