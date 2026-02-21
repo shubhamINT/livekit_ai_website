@@ -41,6 +41,8 @@ class ExotelSipClient:
         self._call_id = str(uuid.uuid4())
         self._cseq = 1
         self._to_tag = None
+        self._remote_contact_uri = None
+        self._route_set: list[str] = []
         self._reader: asyncio.StreamReader | None = None
         self._writer: asyncio.StreamWriter | None = None
 
@@ -89,42 +91,52 @@ class ExotelSipClient:
         to = f"<sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT}>" + (
             f";tag={self._to_tag}" if self._to_tag else ""
         )
-        return (
-            "\r\n".join(
-                [
-                    f"ACK sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT} SIP/2.0",
-                    f"Via: SIP/2.0/TCP {EXOTEL_CUSTOMER_IP}:{EXOTEL_CUSTOMER_SIP_PORT};branch={self._branch};rport",
-                    f"Max-Forwards: 70",
-                    f'From: "{EXOTEL_CALLER_ID}" <sip:{EXOTEL_CALLER_ID}@{EXOTEL_FROM_DOMAIN}>;tag={self._tag}',
-                    f"To: {to}",
-                    f"Call-ID: {self._call_id}",
-                    f"CSeq: {self._cseq} ACK",
-                    "Content-Length: 0",
-                ]
-            )
-            + "\r\n\r\n"
-        ).encode()
+        req_uri = self._remote_contact_uri or f"sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT}"
+        
+        h = [
+            f"ACK {req_uri} SIP/2.0",
+            f"Via: SIP/2.0/TCP {EXOTEL_CUSTOMER_IP}:{EXOTEL_CUSTOMER_SIP_PORT};branch={self._branch};rport",
+            f"Max-Forwards: 70",
+        ]
+        
+        for route in self._route_set:
+            h.append(f"Route: {route}")
+            
+        h.extend([
+            f'From: "{EXOTEL_CALLER_ID}" <sip:{EXOTEL_CALLER_ID}@{EXOTEL_FROM_DOMAIN}>;tag={self._tag}',
+            f"To: {to}",
+            f"Call-ID: {self._call_id}",
+            f"CSeq: {self._cseq} ACK",
+            "Content-Length: 0",
+        ])
+        
+        return ("\r\n".join(h) + "\r\n\r\n").encode()
 
     def _bye(self) -> bytes:
         to = f"<sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT}>" + (
             f";tag={self._to_tag}" if self._to_tag else ""
         )
         self._cseq += 1
-        return (
-            "\r\n".join(
-                [
-                    f"BYE sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT} SIP/2.0",
-                    f"Via: SIP/2.0/TCP {EXOTEL_CUSTOMER_IP}:{EXOTEL_CUSTOMER_SIP_PORT};branch=z9hG4bK-{uuid.uuid4().hex};rport",
-                    f"Max-Forwards: 70",
-                    f'From: "{EXOTEL_CALLER_ID}" <sip:{EXOTEL_CALLER_ID}@{EXOTEL_FROM_DOMAIN}>;tag={self._tag}',
-                    f"To: {to}",
-                    f"Call-ID: {self._call_id}",
-                    f"CSeq: {self._cseq} BYE",
-                    "Content-Length: 0",
-                ]
-            )
-            + "\r\n\r\n"
-        ).encode()
+        req_uri = self._remote_contact_uri or f"sip:{self.callee}@{EXOTEL_SIP_HOST}:{EXOTEL_SIP_PORT}"
+
+        h = [
+            f"BYE {req_uri} SIP/2.0",
+            f"Via: SIP/2.0/TCP {EXOTEL_CUSTOMER_IP}:{EXOTEL_CUSTOMER_SIP_PORT};branch=z9hG4bK-{uuid.uuid4().hex};rport",
+            f"Max-Forwards: 70",
+        ]
+
+        for route in self._route_set:
+            h.append(f"Route: {route}")
+
+        h.extend([
+            f'From: "{EXOTEL_CALLER_ID}" <sip:{EXOTEL_CALLER_ID}@{EXOTEL_FROM_DOMAIN}>;tag={self._tag}',
+            f"To: {to}",
+            f"Call-ID: {self._call_id}",
+            f"CSeq: {self._cseq} BYE",
+            "Content-Length: 0",
+        ])
+        
+        return ("\r\n".join(h) + "\r\n\r\n").encode()
 
     @staticmethod
     def _response_200_ok(hdrs: dict, via_headers: list[str] | None = None) -> bytes:
@@ -189,11 +201,18 @@ class ExotelSipClient:
                     rest = buf[he + 4 :]
                     lines = hb.split("\r\n")
                     status = lines[0]
-                    hdrs = {
-                        l.split(":", 1)[0].strip().lower(): l.split(":", 1)[1].strip()
-                        for l in lines[1:]
-                        if ":" in l
-                    }
+                    hdrs = {}
+                    record_routes = []
+                    for l in lines[1:]:
+                        if ":" in l:
+                            k, v = l.split(":", 1)
+                            k = k.strip().lower()
+                            v = v.strip()
+                            if k == "record-route":
+                                record_routes.append(v)
+                            else:
+                                hdrs[k] = v
+
                     cl = int(hdrs.get("content-length", "0"))
                     if len(rest) < cl:
                         break
@@ -232,6 +251,17 @@ class ExotelSipClient:
                     if code == 200:
                         if "tag=" in hdrs.get("to", ""):
                             self._to_tag = hdrs["to"].split("tag=")[-1].split(";")[0]
+                        if "contact" in hdrs:
+                            # Usually formatted like: <sip:...>
+                            c_raw = hdrs["contact"]
+                            if "<" in c_raw and ">" in c_raw:
+                                self._remote_contact_uri = c_raw[c_raw.find("<")+1 : c_raw.find(">")]
+                            else:
+                                self._remote_contact_uri = c_raw
+                        if record_routes:
+                            # Reverse order for ACK/BYE Requests
+                            self._route_set = list(reversed(record_routes))
+
                         self._writer.write(self._ack())
                         await self._writer.drain()
                         logger.info("[SIP] ✅ 200 OK — ACK sent")
@@ -292,6 +322,9 @@ class ExotelSipClient:
                             await self._writer.drain()
                         logger.info("[SIP] → 200 OK (BYE)")
                         return
+                    else:
+                        method = start.split()[0] if start else "Unknown"
+                        logger.info(f"[SIP] ← {method} (Ignored by outbound connection loop)")
         except Exception as e:
             logger.info(f"[SIP] Monitor ended: {e}")
 
