@@ -13,6 +13,8 @@ from pydantic import BaseModel
 from api_data_structure.structure import OutboundCallRequest, OutboundTrunkCreate, SIPTestRequest
 import asyncio
 
+from custom_sip_reach.inbound_listener import ensure_inbound_server
+
 # Import the outbound call function
 from outbound.outbound_call import OutboundCall
 from inbound.config_manager import set_agent_for_number, get_agent_for_number
@@ -39,6 +41,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+async def startup_event():
+    """Start the inbound SIP TCP listener when the FASTAPI server boots up."""
+    logger.info("Starting up Inbound SIP Listener...")
+    asyncio.create_task(ensure_inbound_server())
 
 ## The agent currently supported
 ALLOWED_AGENTS = {"web", "invoice", "restaurant", "bank", "tour", 

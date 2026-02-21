@@ -46,17 +46,21 @@ class ExotelSipClient:
 
     # ── SDP / Message Builders ───────────────────────────────────────────
 
-    def _sdp(self) -> str:
+    @staticmethod
+    def _generate_sdp(rtp_port: int) -> str:
         ts = int(time.time())
         # c= uses the real public IP — this is what Exotel reads to know where to send RTP
         return (
             f"v=0\r\no=- {ts} {ts} IN IP4 {EXOTEL_MEDIA_IP}\r\ns=-\r\n"
             f"c=IN IP4 {EXOTEL_MEDIA_IP}\r\nt=0 0\r\n"
-            f"m=audio {self.rtp_port} RTP/AVP 8 0 101\r\n"
+            f"m=audio {rtp_port} RTP/AVP 8 0 101\r\n"
             f"a=rtpmap:8 PCMA/8000\r\na=rtpmap:0 PCMU/8000\r\n"
             f"a=rtpmap:101 telephone-event/8000\r\na=fmtp:101 0-15\r\n"
             f"a=ptime:20\r\na=sendrecv\r\n"
         )
+
+    def _sdp(self) -> str:
+        return self._generate_sdp(self.rtp_port)
 
     def _invite(self, auth: str | None = None, proxy: bool = False) -> bytes:
         sdp = self._sdp()
@@ -123,14 +127,18 @@ class ExotelSipClient:
         ).encode()
 
     @staticmethod
-    def _response_200_ok(hdrs: dict) -> bytes:
+    def _response_200_ok(hdrs: dict, via_headers: list[str] | None = None) -> bytes:
         def _get(name: str) -> str | None:
             return hdrs.get(name)
 
         h = ["SIP/2.0 200 OK"]
-        via = _get("via")
-        if via:
-            h.append(f"Via: {via}")
+        if via_headers:
+            for via in via_headers:
+                h.append(f"Via: {via}")
+        else:
+            via = _get("via")
+            if via:
+                h.append(f"Via: {via}")
         frm = _get("from")
         if frm:
             h.append(f"From: {frm}")
