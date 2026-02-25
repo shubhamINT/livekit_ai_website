@@ -19,6 +19,7 @@ from agents.distributor.distributor_agent import DistributorAgent
 from agents.bandhan_banking.bandhan_banking import BandhanBankingAgent
 from agents.ambuja.ambuja_agent import AmbujaAgent
 from agents.hirebot.hirebot_agent import HirebotAgent
+from agents.kingston.kingston_agent import KingstonAgent
 from openai.types.beta.realtime.session import TurnDetection
 from livekit.plugins import cartesia
 from livekit.plugins import sarvam
@@ -44,6 +45,7 @@ AGENT_TYPES = {
     "bandhan_banking": BandhanBankingAgent,
     "ambuja": AmbujaAgent,
     "hirebot" : HirebotAgent,
+    "kingston" : KingstonAgent
 }
 
 
