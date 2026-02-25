@@ -110,6 +110,7 @@ export default function App() {
       <Route path="/ambuja" element={<AmbujaPage />} />
       <Route path="/hirebot" element={<HirebotPage />} />
       <Route path="/hirebot/web" element={<LegacyAgentPage agentType="hirebot" />} />
+      <Route path="/kingston" element={<LegacyAgentPage agentType="kingston" />} />
     </Routes>
   );
 }

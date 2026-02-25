@@ -1,1 +1,1 @@
-export type AgentType = 'invoice' | 'restaurant' | 'bank' | 'tour' | 'realestate' | 'distributor' | 'bandhan_banking' | 'ambuja'| 'hirebot';
+export type AgentType = 'invoice' | 'restaurant' | 'bank' | 'tour' | 'realestate' | 'distributor' | 'bandhan_banking' | 'ambuja'| 'hirebot' | 'kingston';

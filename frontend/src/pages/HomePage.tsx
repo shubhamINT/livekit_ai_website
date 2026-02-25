@@ -236,6 +236,17 @@ export default function HomePage() {
                         disabled={connecting}
                         hideActions={true}
                     />
+
+                    <AgentButton
+                        label="Kingston Agent"
+                        description="Your Senior Educational Consultant"
+                        agentType="kingston"
+                        onWebCall={handleWebCall}
+                        onOutboundCall={handleOutboundCall}
+                        onMobileClick={handleMobileClick}
+                        disabled={connecting}
+                    />
+
                 </div>
 
                 {/* Bottom Trust Section */}
