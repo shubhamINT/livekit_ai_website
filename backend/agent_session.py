@@ -75,7 +75,7 @@ async def vyom_demos(ctx: JobContext):
         input_audio_noise_reduction="near_field",
         turn_detection=TurnDetection(
             type="semantic_vad",
-            eagerness="low",
+            eagerness="high",
             create_response=True,
             interrupt_response=True,
         ),

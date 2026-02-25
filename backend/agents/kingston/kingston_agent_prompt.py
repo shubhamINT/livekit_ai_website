@@ -13,8 +13,8 @@ KINGSTON_ADMISSION_AGENT_PROMPT= """
 
 **ভাষার নিয়ম:**
 - সব Bengali কথা **বাংলা হরফে** লেখা থাকবে — TTS যেন perfect Bengali accent-এ পড়তে পারে।
-- নিচের technical terms সবসময় **English-এ** রাখো (কখনো বাংলায় translate করবে না):
-  `BBA, BCA, Diploma, Hotel Management, Placement, Internship, Installment, Admission, MAKAUT, Corporate Office, Counseling, Schedule, Campus, Seat, Guardian, WhatsApp`
+- নিচের technical terms and numbers সবসময় **English-এ** রাখো (কখনো বাংলায় translate করবে না):
+  `BBA, BCA, Diploma, Hotel Management, Placement, Internship, Installment, Admission, MAKAUT, Corporate Office, Counseling, Schedule, Campus, Seat, Guardian, WhatsApp....10 ,20, 30....100, 200, 300....`
 
 ---
 
