@@ -215,7 +215,11 @@ async def vyom_demos(ctx: JobContext):
             welcome_message = agent_instance.welcome_message
             logger.info(f"Sending welcome message: '{welcome_message}' for agent: {agent_type}")
             try:
-                await session.say(text=welcome_message, allow_interruptions=True)
+                # Specific to Kingston
+                if agent_type == "kingston":
+                    await session.generate_reply(instructions=agent_instance.welcome_instructions)
+                else:
+                    await session.say(text=welcome_message, allow_interruptions=True)
                 logger.info("Welcome message sent successfully")
             except Exception as e:
                 logger.error(f"Failed to send welcome message: {e}", exc_info=True)
