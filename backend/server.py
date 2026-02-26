@@ -205,41 +205,41 @@ async def get_inbound_agent(phone_number: str = Query(...)):
 async def health():
     return "ok"
 
-# Test SIP
-from sip_test import make_exotel_call
+# # Test SIP
+# from sip_test import make_exotel_call
 
-# {
-#   "exotel_ip": "pstn.in4.exotel.com",
-#   "exotel_port": 5070,
-#   "customer_ip": "13.234.150.174",
-#   "customer_port": 5061,
-#   "media_ip": "13.234.150.174",
-#   "rtp_port": 18232,
-#   "caller": "+918044319240",
-#   "callee": "+918697421450"
-# }
+# # {
+# #   "exotel_ip": "pstn.in4.exotel.com",
+# #   "exotel_port": 5070,
+# #   "customer_ip": "13.234.150.174",
+# #   "customer_port": 5061,
+# #   "media_ip": "13.234.150.174",
+# #   "rtp_port": 18232,
+# #   "caller": "+918044319240",
+# #   "callee": "+918697421450"
+# # }
 
-@app.post("/api/testsip")
-async def trigger_sip_test_call(data: SIPTestRequest):
-    logger.info(f"Received SIP test call request: {data}")
+# @app.post("/api/testsip")
+# async def trigger_sip_test_call(data: SIPTestRequest):
+#     logger.info(f"Received SIP test call request: {data}")
         
-    try:
-        # Since make_exotel_call uses blocking sockets, run it in a thread
-        res = await asyncio.to_thread(
-            make_exotel_call,
-            exotel_ip=data.exotel_ip,
-            exotel_port=data.exotel_port,
-            customer_ip=data.customer_ip,
-            customer_port=data.customer_port,
-            media_ip=data.media_ip,
-            rtp_port=data.rtp_port,
-            caller=data.caller,
-            callee=data.callee
-        )
-        return res
-    except Exception as e:
-        logger.error(f"Failed to initiate SIP test call: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
+#     try:
+#         # Since make_exotel_call uses blocking sockets, run it in a thread
+#         res = await asyncio.to_thread(
+#             make_exotel_call,
+#             exotel_ip=data.exotel_ip,
+#             exotel_port=data.exotel_port,
+#             customer_ip=data.customer_ip,
+#             customer_port=data.customer_port,
+#             media_ip=data.media_ip,
+#             rtp_port=data.rtp_port,
+#             caller=data.caller,
+#             callee=data.callee
+#         )
+#         return res
+#     except Exception as e:
+#         logger.error(f"Failed to initiate SIP test call: {e}", exc_info=True)
+#         raise HTTPException(status_code=500, detail=str(e))
 
 
 if __name__ == "__main__":
