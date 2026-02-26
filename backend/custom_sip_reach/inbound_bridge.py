@@ -10,7 +10,7 @@ import time
 import uuid
 
 from livekit import rtc
-from livekit.api import AccessToken, VideoGrants
+from livekit.api import AccessToken, VideoGrants, SIPGrants
 
 from .config import (
     EXOTEL_CUSTOMER_IP,
@@ -142,8 +142,9 @@ async def handle_inbound_call(
         token = (
             AccessToken(LK_API_KEY, LK_API_SECRET)
             .with_identity(f"sip-in-{phone_number}")
-            .with_metadata(json.dumps({"source": "exotel_inbound_bridge"}))
+            .with_metadata(json.dumps({"source": "exotel_bridge"}))
             .with_grants(VideoGrants(room_join=True, room=room_name))
+            .with_sip_grants(SIPGrants(admin=True, call=True))
             .to_jwt()
         )
         await room.connect(LK_URL, token)

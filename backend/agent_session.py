@@ -163,8 +163,9 @@ async def vyom_demos(ctx: JobContext):
 
         is_phone_call = is_sip or is_exotel_bridge
         logger.info(
-            f"Participant joined: {participant.identity}, "
-            f"kind={participant.kind}, is_sip={is_sip}, "
+            f"Participant joined: {participant.identity} | "
+            f"kind={participant.kind} | "
+            f"is_sip={is_sip} | "
             f"is_exotel_bridge={is_exotel_bridge}"
         )
 
