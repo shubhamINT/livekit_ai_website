@@ -160,6 +160,16 @@ async def handle_inbound_call(
         writer.write(resp_200)
         await writer.drain()
 
+        # Stabilization delay: wait for the agent process to finish booting
+        # (session.start + TTS init) and register its data_received handler
+        # before we publish call_answered. Without this, the publish fires
+        # ~25ms after LiveKit connect, but the agent needs ~200-500ms to boot,
+        # so the data packet arrives with no listener and is silently dropped.
+        # NOTE: 200 OK is already sent above — Exotel's RTP path is live.
+        # This delay only controls when we signal the agent to start speaking.
+        logger.info("[INBOUND] Waiting for agent to stabilize before signalling call_answered...")
+        await asyncio.sleep(1.5)
+
         # Let agent know call is connected
         try:
             await room.local_participant.publish_data(

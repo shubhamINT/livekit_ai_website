@@ -224,8 +224,8 @@ async def vyom_demos(ctx: JobContext):
                 except asyncio.TimeoutError:
                     logger.error("Timed out waiting for call to be answered (60s)")
                     return
-                # Buffer for RTP stabilization - longer delay ensures welcome message is heard
-                await asyncio.sleep(2.0)
+                # Small buffer for RTP packets to settle (bridge already waited 3s for boot)
+                await asyncio.sleep(0.5)
 
             welcome_message = agent_instance.welcome_message
             logger.info(f"Sending welcome message: '{welcome_message}' for agent: {agent_type}")
