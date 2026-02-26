@@ -166,6 +166,7 @@ async def handle_inbound_call(
                 json.dumps({"event": "call_answered"}).encode(),
                 topic="sip_bridge_events",
             )
+            logger.info("[INBOUND] Published call_answered event to agent")
         except Exception as e:
             logger.error(f"[INBOUND] Failed to publish call_answered event: {e}")
 
