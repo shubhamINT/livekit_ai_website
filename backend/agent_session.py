@@ -146,11 +146,10 @@ async def vyom_demos(ctx: JobContext):
         logger.info("AgentSession started successfully")
 
         # --- EVENT TRACKING FOR CALL ANSWERED ---
-        # We define these BEFORE waiting for the participant to avoid race conditions,
-        # especially for INBOUND calls where the bridge might join and signal "answered"
-        # while the agent is still performing its own startup.
+        # We register `data_received` EARLY (before wait_for_participant) so we never
+        # miss the call_answered signal from the Exotel bridge, even if it connects
+        # while the agent is still booting up (common in inbound calls).
         audio_ready = asyncio.Event()
-        target_identity = None
 
         @ctx.room.on("data_received")
         def on_data_received(data: rtc.DataPacket):
@@ -163,27 +162,9 @@ async def vyom_demos(ctx: JobContext):
                 except (json.JSONDecodeError, TypeError):
                     pass
 
-        @ctx.room.on("track_published")
-        def on_track_published(publication: rtc.RemoteTrackPublication, p: rtc.RemoteParticipant):
-            if publication.kind == rtc.TrackKind.KIND_AUDIO:
-                # If we already know the participant, verify it's the right one.
-                # If not, any audio track from a non-agent is likely the bridge.
-                if target_identity is None or p.identity == target_identity:
-                    logger.info(f"Audio track published by {p.identity} — signaling call answered")
-                    audio_ready.set()
-
         # WAIT for participant
         logger.info("Waiting for participant...")
         participant = await ctx.wait_for_participant()
-        target_identity = participant.identity
-
-        # CHECK IF TRACK IS ALREADY THERE (Crucial for Inbound calls)
-        # If the bridge joined before the agent, the track is already published.
-        for pub in participant.track_publications.values():
-            if pub.kind == rtc.TrackKind.KIND_AUDIO:
-                logger.info(f"Participant {participant.identity} already has an audio track — call answered")
-                audio_ready.set()
-                break
 
         is_sip = participant.kind == rtc.ParticipantKind.PARTICIPANT_KIND_SIP
 
@@ -204,6 +185,28 @@ async def vyom_demos(ctx: JobContext):
             f"is_sip={is_sip} | "
             f"is_exotel_bridge={is_exotel_bridge}"
         )
+
+        if is_exotel_bridge:
+            # Exotel bridge: ONLY trust the `call_answered` data message (registered above).
+            # The bridge publishes its audio track immediately on joining — BEFORE the phone
+            # even rings — so `track_published` would fire way too early here.
+            # Also check if we already received the event before reaching this point.
+            pass  # data_received listener above already handles this
+        elif is_sip:
+            # Standard SIP (Twilio / LiveKit native): audio track is published ONLY after
+            # the SIP 200 OK, so track_published IS a reliable answer signal here.
+            @ctx.room.on("track_published")
+            def on_track_published(publication: rtc.RemoteTrackPublication, p: rtc.RemoteParticipant):
+                if p.identity == participant.identity and publication.kind == rtc.TrackKind.KIND_AUDIO:
+                    logger.info(f"SIP audio track published by {p.identity} — call answered")
+                    audio_ready.set()
+
+            # Also check if the track is already there (rare for SIP but harmless)
+            for pub in participant.track_publications.values():
+                if pub.kind == rtc.TrackKind.KIND_AUDIO:
+                    logger.info(f"SIP participant {participant.identity} already has an audio track — call answered")
+                    audio_ready.set()
+                    break
 
         # --- Background Audio Start ---
         try:
