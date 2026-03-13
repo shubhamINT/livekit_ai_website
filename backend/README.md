@@ -29,6 +29,12 @@ CARTESIA_API_KEY=your_cartesia_api_key
 SIP_OUTBOUND_TRUNK_ID_TWILIO=your_trunk_id
 LIVEKIT_EGRESS_URL=https://your-egress-server
 PORT=8000
+
+# WhatsApp template messaging (Tour agent)
+WHATSAPP_ACCESS_TOKEN=your_meta_whatsapp_token
+WHATSAPP_PHONE_NUMBER_ID=110377482141989
+WHATSAPP_TEMPLATE_NAME=utility_agui_agent
+TOUR_DEFAULT_WHATSAPP_TO=918697421450
 ```
 
 ## Running locally
@@ -61,3 +67,4 @@ Supported agents include `web`, `invoice`, `restaurant`, `bank`, `tour`, and `re
 - `agent_session.py` - Agent runtime and routing
 - `outbound/outbound_call.py` - SIP outbound utility
 - `inbound/config_manager.py` - Inbound number mapping
+- `agents/tour/utility/whatsapp.py` - WhatsApp template send utility for tour sharing

@@ -1,5 +1,6 @@
 from livekit.agents import function_tool, Agent, RunContext
 from agents.tour.utility.email import send_email
+from agents.tour.utility.whatsapp import send_whatsapp_template
 from agents.tour.tour_agent_prompt import TOUR_AGENT_PROMPT
 from shared_humanization_prompt.tts_humanification_cartesia import TTS_HUMANIFICATION_CARTESIA
 from jinja2 import Environment, FileSystemLoader
@@ -12,6 +13,44 @@ TEMPLATE_DIR = os.path.dirname(__file__)
 jinja_env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
 
 
+def _build_whatsapp_content(payload: dict) -> str:
+    # Keep content concise for template variable limits.
+    lines = ["Your Jharkhand travel details:"]
+
+    if payload.get("starting_city"):
+        lines.append(f"Starting city: {payload['starting_city']}")
+    if payload.get("trip_duration"):
+        lines.append(f"Duration: {payload['trip_duration']}")
+    if payload.get("travel_pace"):
+        lines.append(f"Pace: {payload['travel_pace']}")
+    if payload.get("group_type"):
+        lines.append(f"Group: {payload['group_type']}")
+
+    days = payload.get("days") or []
+    if days:
+        lines.append("Itinerary:")
+        for day in days:
+            day_number = day.get("number", "?")
+            theme = day.get("theme", "")
+            activities = day.get("activities") or []
+            day_line = f"Day {day_number}"
+            if theme:
+                day_line += f": {theme}"
+            if activities:
+                day_line += f" | {', '.join(activities)}"
+            lines.append(day_line)
+
+    if payload.get("property_name"):
+        lines.append(f"Stay: {payload['property_name']}")
+    if payload.get("check_in") and payload.get("check_out"):
+        lines.append(f"Dates: {payload['check_in']} to {payload['check_out']}")
+    if payload.get("booking_id"):
+        lines.append(f"Booking ID: {payload['booking_id']}")
+
+    composed_content = "\n".join(lines)
+    return composed_content[:900]
+
+
 class TourAgent(Agent):
     def __init__(self, room) -> None:
         super().__init__(
@@ -22,9 +61,9 @@ class TourAgent(Agent):
     @property
     def welcome_message(self):
         return (
-            "Welcome to the Land of Forests, "
-            "I am Pratiksha, your official Jharkhand Tourism JTDC Concierge. "
-            "How can I help you plan your trip today?"
+            "वनों की धरती में आपका स्वागत है, "
+            "मैं प्रतीक्षा, आपकी आधिकारिक झारखंड पर्यटन JTDC कंसीयर्ज हूं। "
+            "आज आपकी यात्रा की योजना बनाने में मैं आपकी कैसे मदद कर सकती हूं?"
         )
 
     @function_tool
@@ -104,5 +143,49 @@ class TourAgent(Agent):
             return (
                 f"Failed to send email: {str(e)}. "
                 "Tell the user: Sorry, I wasn't able to send the email right now. "
+                "Please try again in a moment."
+            )
+
+    @function_tool
+    async def send_travel_whatsapp(
+        self,
+        payload: dict,
+        tourist_whatsapp: str | None,
+        ctx: RunContext,
+    ):
+        """
+        Send travel details on WhatsApp at any point in the conversation.
+
+        tourist_whatsapp: recipient WhatsApp number (country code + number).
+        payload: send whatever context is known so far.
+        """
+        _ = ctx
+
+        try:
+            whatsapp_number = tourist_whatsapp or os.getenv("TOUR_DEFAULT_WHATSAPP_TO")
+            if not whatsapp_number:
+                raise ValueError("Tourist WhatsApp number is required.")
+
+            display_name = payload.get("guest_name") or "Traveler"
+            content = _build_whatsapp_content(payload)
+            print("Composed WhatsApp content:", content)
+            # Run in background so voice conversation does not block.
+            asyncio.create_task(
+                send_whatsapp_template(
+                    to=whatsapp_number,
+                    display_name=display_name,
+                    content=content,
+                )
+            )
+
+            return (
+                f"WhatsApp details sent successfully to {whatsapp_number}. "
+                "Tell the user: Perfect, I have shared your travel details on WhatsApp."
+            )
+
+        except Exception as e:
+            return (
+                f"Failed to send WhatsApp details: {str(e)}. "
+                "Tell the user: Sorry, I could not send the WhatsApp message right now. "
                 "Please try again in a moment."
             )
