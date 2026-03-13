@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Your Jharkhand Travel Plan</title>
+    <style>
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            line-height: 1.6;
+            color: #2d3748;
+            margin: 0;
+            padding: 0;
+            background-color: #f7fafc;
+        }
+        .container {
+            max-width: 600px;
+            margin: 20px auto;
+            background: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+        }
+        .header {
+            background-color: #1a4731; /* Deep Forest Green */
+            background-image: linear-gradient(135deg, #1a4731 0%, #2d5a27 100%);
+            padding: 40px 20px;
+            text-align: center;
+            color: #ffffff;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            margin: 10px 0 0;
+            opacity: 0.9;
+            font-size: 16px;
+        }
+        .content {
+            padding: 30px;
+        }
+        .section-title {
+            color: #1a4731;
+            font-size: 18px;
+            font-weight: 600;
+            margin: 25px 0 15px;
+            border-bottom: 2px solid #edf2f7;
+            padding-bottom: 8px;
+        }
+        .info-grid {
+            margin-bottom: 20px;
+        }
+        .info-item {
+            margin-bottom: 10px;
+            font-size: 15px;
+        }
+        .info-label {
+            font-weight: 600;
+            color: #718096;
+            width: 140px;
+            display: inline-block;
+        }
+        .itinerary-day {
+            background: #f0f4f1; /* Suble Green Tint */
+            border-left: 4px solid #2d5a27;
+            padding: 15px;
+            margin-bottom: 15px;
+            border-radius: 0 8px 8px 0;
+        }
+        .day-header {
+            font-weight: 700;
+            color: #1a4731;
+            margin-bottom: 5px;
+        }
+        .activity-list {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .activity-item {
+            margin-bottom: 5px;
+        }
+        .footer {
+            background-color: #f7fafc;
+            padding: 20px;
+            text-align: center;
+            font-size: 13px;
+            color: #a0aec0;
+            border-top: 1px solid #edf2f7;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            background: #e6fffa;
+            color: #234e52;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-right: 5px;
+        }
+        .card {
+            border: 1px solid #edf2f7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>Jharkhand Tourism</h1>
+            <p>The Land of Forests Awaits You</p>
+        </div>
+
+        <!-- Main Content -->
+        <div class="content">
+            <p>Hello <strong>{{ guest_name | default('Traveler') }}</strong>,</p>
+            <p>Thank you for choosing Pratiksha to help plan your journey. Jharkhand's lush landscapes and vibrant culture are ready for your arrival. Here is your personalized travel summary.</p>
+
+            <!-- Trip Overview -->
+            <div class="section-title">Trip Overview</div>
+            <div class="card">
+                {% if starting_city %}<div class="info-item"><span class="info-label">Start City:</span> {{ starting_city }}</div>{% endif %}
+                {% if trip_duration %}<div class="info-item"><span class="info-label">Duration:</span> {{ trip_duration }}</div>{% endif %}
+                {% if num_guests %}<div class="info-item"><span class="info-label">Travelers:</span> {{ num_guests }}</div>{% endif %}
+                {% if travel_pace %}<div class="info-item"><span class="info-label">Travel Pace:</span> <span class="badge">{{ travel_pace }}</span></div>{% endif %}
+                {% if group_type %}<div class="info-item"><span class="info-label">Group Type:</span> {{ group_type }}</div>{% endif %}
+            </div>
+
+            <!-- Booking Details (If present) -->
+            {% if booking_id %}
+            <div class="section-title">Accommodation Details</div>
+            <div class="card" style="border-left: 4px solid #ecc94b;">
+                <div class="info-item"><span class="info-label">Booking ID:</span> <strong>#{{ booking_id }}</strong></div>
+                {% if property_name %}<div class="info-item"><span class="info-label">Property:</span> {{ property_name }}</div>{% endif %}
+                {% if check_in %}<div class="info-item"><span class="info-label">Check-in:</span> {{ check_in }}</div>{% endif %}
+                {% if check_out %}<div class="info-item"><span class="info-label">Check-out:</span> {{ check_out }}</div>{% endif %}
+                {% if tariff %}<div class="info-item"><span class="info-label">Tariff:</span> {{ tariff }}</div>{% endif %}
+            </div>
+            {% endif %}
+
+            <!-- Itinerary -->
+            {% if days %}
+            <div class="section-title">Your Itinerary</div>
+            {% for day in days %}
+            <div class="itinerary-day">
+                <div class="day-header">Day {{ day.number }}{% if day.theme %} — {{ day.theme }}{% endif %}</div>
+                {% if day.activities %}
+                <ul class="activity-list">
+                    {% for activity in day.activities %}
+                    <li class="activity-item">{{ activity }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+                {% if day.stay %}<p style="margin: 5px 0 0; font-size: 14px; color: #4a5568;"><strong>Stay:</strong> {{ day.stay }}</p>{% endif %}
+            </div>
+            {% endfor %}
+            {% endif %}
+
+            <!-- Advisory/Tips -->
+            {% if weather_advisory or food_suggestion or tips %}
+            <div class="section-title">Traveler's Notes</div>
+            {% if weather_advisory %}<p><strong>☀️ Weather Note:</strong> {{ weather_advisory }}</p>{% endif %}
+            {% if food_suggestion %}<p><strong>🍲 Local Flavors:</strong> {{ food_suggestion }}</p>{% endif %}
+            
+            {% if tips %}
+            <div style="background: #fffaf0; padding: 15px; border-radius: 8px; border: 1px solid #feebc8;">
+                <p style="margin-top: 0; font-weight: 600; color: #744210;">Local Tips:</p>
+                <ul style="margin-bottom: 0; padding-left: 20px; font-size: 14px;">
+                    {% for tip in tips %}
+                    <li>{{ tip }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p>Sent with ❤️ from Jharkhand Tourism Development Corporation (JTDC)</p>
+            <p>&copy; 2026 Jharkhand Tourism. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>
