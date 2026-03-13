@@ -12,8 +12,22 @@ logger = logging.getLogger(__name__)
 
 
 def _normalize_phone_number(phone_number: str) -> str:
-	# Keep only digits so API receives a valid destination number.
-	return "".join(char for char in phone_number if char.isdigit())
+	# Normalize Indian mobile numbers and return digits in 91XXXXXXXXXX format.
+	digits_only = "".join(char for char in str(phone_number or "") if char.isdigit())
+
+	# Accept 10-digit Indian mobiles and auto-prefix 91.
+	if len(digits_only) == 10 and digits_only[0] in "6789":
+		return f"91{digits_only}"
+
+	# Accept 12-digit format that already includes 91 country code.
+	if len(digits_only) == 12 and digits_only.startswith("91") and digits_only[2] in "6789":
+		return digits_only
+
+	# Accept local format with leading 0 and normalize to 91XXXXXXXXXX.
+	if len(digits_only) == 11 and digits_only.startswith("0") and digits_only[1] in "6789":
+		return f"91{digits_only[1:]}"
+
+	return ""
 
 
 def _sanitize_template_text(value: str, max_len: int = 900) -> str:
@@ -45,8 +59,10 @@ async def send_whatsapp_template(
 
 	normalized_to = _normalize_phone_number(to)
 	if not normalized_to:
-		logger.error("Recipient WhatsApp number is missing or invalid.")
-		raise ValueError("Recipient WhatsApp number missing.")
+		logger.error("Recipient WhatsApp number is missing or invalid: %s", to)
+		raise ValueError(
+			"Invalid Indian WhatsApp number. Use a valid 10-digit mobile number (starting 6-9), with or without +91."
+		)
 
 	safe_display_name = _sanitize_template_text(display_name, max_len=60)
 	safe_content = _sanitize_template_text(content, max_len=900)

@@ -90,7 +90,7 @@ async def vyom_demos(ctx: JobContext):
                 voice=os.getenv("CARTESIA_VOICE_ID_HIREBOT", ""),
                 api_key=os.getenv("CARTESIA_API_KEY", ""),
                 )
-        case "bandhan_banking" | "kingston":
+        case "bandhan_banking" | "kingston" :
             tts = sarvam.TTS(
                 model="bulbul:v3", 
                 target_language_code="en-IN",

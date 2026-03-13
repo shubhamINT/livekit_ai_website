@@ -68,3 +68,14 @@ Supported agents include `web`, `invoice`, `restaurant`, `bank`, `tour`, and `re
 - `outbound/outbound_call.py` - SIP outbound utility
 - `inbound/config_manager.py` - Inbound number mapping
 - `agents/tour/utility/whatsapp.py` - WhatsApp template send utility for tour sharing
+
+## Tour WhatsApp behavior
+
+- Accepts only valid Indian mobile numbers for Tour WhatsApp sharing.
+- Supports input formats: `XXXXXXXXXX`, `0XXXXXXXXXX`, `91XXXXXXXXXX`, `+91XXXXXXXXXX`.
+- Auto-normalizes valid 10-digit numbers to `+91` format before sending.
+- Rejects malformed or extra-digit numbers with a clear validation error.
+
+## Tour voice behavior
+
+- Tour agent "Pratiksha" replies in mixed-script Hinglish and uses consistent feminine first-person Hindi phrasing.
