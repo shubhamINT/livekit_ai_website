@@ -15,20 +15,20 @@ jinja_env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
 
 def _build_whatsapp_content(payload: dict) -> str:
     # Keep content concise for template variable limits.
-    lines = ["Your Jharkhand travel details:"]
+    sections = ["Your Jharkhand travel details"]
 
     if payload.get("starting_city"):
-        lines.append(f"Starting city: {payload['starting_city']}")
+        sections.append(f"Starting city: {payload['starting_city']}")
     if payload.get("trip_duration"):
-        lines.append(f"Duration: {payload['trip_duration']}")
+        sections.append(f"Duration: {payload['trip_duration']}")
     if payload.get("travel_pace"):
-        lines.append(f"Pace: {payload['travel_pace']}")
+        sections.append(f"Pace: {payload['travel_pace']}")
     if payload.get("group_type"):
-        lines.append(f"Group: {payload['group_type']}")
+        sections.append(f"Group: {payload['group_type']}")
 
     days = payload.get("days") or []
     if days:
-        lines.append("Itinerary:")
+        itinerary_parts = []
         for day in days:
             day_number = day.get("number", "?")
             theme = day.get("theme", "")
@@ -38,16 +38,17 @@ def _build_whatsapp_content(payload: dict) -> str:
                 day_line += f": {theme}"
             if activities:
                 day_line += f" | {', '.join(activities)}"
-            lines.append(day_line)
+            itinerary_parts.append(day_line)
+        sections.append(f"Itinerary: {' || '.join(itinerary_parts)}")
 
     if payload.get("property_name"):
-        lines.append(f"Stay: {payload['property_name']}")
+        sections.append(f"Stay: {payload['property_name']}")
     if payload.get("check_in") and payload.get("check_out"):
-        lines.append(f"Dates: {payload['check_in']} to {payload['check_out']}")
+        sections.append(f"Dates: {payload['check_in']} to {payload['check_out']}")
     if payload.get("booking_id"):
-        lines.append(f"Booking ID: {payload['booking_id']}")
+        sections.append(f"Booking ID: {payload['booking_id']}")
 
-    composed_content = "\n".join(lines)
+    composed_content = " | ".join(sections)
     return composed_content[:900]
 
 
@@ -149,8 +150,9 @@ class TourAgent(Agent):
     @function_tool
     async def send_travel_whatsapp(
         self,
-        payload: dict,
-        tourist_whatsapp: str | None,
+        payload: dict | None = None,
+        tourist_whatsapp: str | None = None,
+        *,
         ctx: RunContext,
     ):
         """
@@ -160,6 +162,7 @@ class TourAgent(Agent):
         payload: send whatever context is known so far.
         """
         _ = ctx
+        payload = payload or {}
 
         try:
             whatsapp_number = tourist_whatsapp or os.getenv("TOUR_DEFAULT_WHATSAPP_TO")
@@ -169,13 +172,11 @@ class TourAgent(Agent):
             display_name = payload.get("guest_name") or "Traveler"
             content = _build_whatsapp_content(payload)
             print("Composed WhatsApp content:", content)
-            # Run in background so voice conversation does not block.
-            asyncio.create_task(
-                send_whatsapp_template(
-                    to=whatsapp_number,
-                    display_name=display_name,
-                    content=content,
-                )
+            # Await send so API failures are visible and handled in this tool.
+            await send_whatsapp_template(
+                to=whatsapp_number,
+                display_name=display_name,
+                content=content,
             )
 
             return (

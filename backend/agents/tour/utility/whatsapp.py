@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import re
 import httpx
 
 from dotenv import load_dotenv
@@ -13,6 +14,14 @@ logger = logging.getLogger(__name__)
 def _normalize_phone_number(phone_number: str) -> str:
 	# Keep only digits so API receives a valid destination number.
 	return "".join(char for char in phone_number if char.isdigit())
+
+
+def _sanitize_template_text(value: str, max_len: int = 900) -> str:
+	# Meta template variables reject newlines/tabs and long repeated spacing.
+	if value is None:
+		return ""
+	cleaned = re.sub(r"\s+", " ", str(value)).strip()
+	return cleaned[:max_len]
 
 
 async def send_whatsapp_template(
@@ -39,6 +48,9 @@ async def send_whatsapp_template(
 		logger.error("Recipient WhatsApp number is missing or invalid.")
 		raise ValueError("Recipient WhatsApp number missing.")
 
+	safe_display_name = _sanitize_template_text(display_name, max_len=60)
+	safe_content = _sanitize_template_text(content, max_len=900)
+
 	payload = {
 		"messaging_product": "whatsapp",
 		"to": normalized_to,
@@ -50,8 +62,8 @@ async def send_whatsapp_template(
 				{
 					"type": "body",
 					"parameters": [
-						{"type": "text", "text": display_name},
-						{"type": "text", "text": content},
+						{"type": "text", "text": safe_display_name or "Traveler"},
+						{"type": "text", "text": safe_content},
 					],
 				}
 			],
