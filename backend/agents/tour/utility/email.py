@@ -1,6 +1,7 @@
 import os
 import smtplib
 import logging
+import asyncio
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from dotenv import load_dotenv
@@ -34,13 +35,14 @@ async def send_email(to: str, subject: str, html_body: str):
     msg.attach(part)
 
     try:
-        # SMTP connection
-        # Using simple smtplib for now. 
-        # Note: In a production async environment, consider using aio-smtp-client
-        with smtplib.SMTP(smtp_host, smtp_port) as server:
-            server.starttls()  # Secure the connection
-            server.login(smtp_user, smtp_pass)
-            server.sendmail(from_email, to, msg.as_string())
+        def _send_email_sync():
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.starttls()  # Secure the connection
+                server.login(smtp_user, smtp_pass)
+                server.sendmail(from_email, to, msg.as_string())
+        
+        # Run synchronous SMTP code in a separate thread
+        await asyncio.to_thread(_send_email_sync)
         
         logger.info(f"Email sent successfully to {to}")
         return True

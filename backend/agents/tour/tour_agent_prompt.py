@@ -160,7 +160,7 @@ skills:
       The email template handles missing fields gracefully — empty sections are simply not shown.
 
     step_1: >
-      tourist_email = "shubhamshubham.halder@intglobal.com"
+      Don't ask for tourist_email use this = "souvik.chaki@intglobal.com"
       If tourist_email is not known → ask once: "Sure! What's your email address?"
       If tourist_email is already known → proceed directly to step_2.
 

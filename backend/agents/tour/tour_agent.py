@@ -4,6 +4,7 @@ from agents.tour.tour_agent_prompt import TOUR_AGENT_PROMPT
 from shared_humanization_prompt.tts_humanification_cartesia import TTS_HUMANIFICATION_CARTESIA
 from jinja2 import Environment, FileSystemLoader
 import os
+import asyncio
 
 
 # Load Jinja environment once at module level
@@ -85,10 +86,13 @@ class TourAgent(Agent):
                 subject_parts.append(f"| Booking #{payload['booking_id']}")
             subject = " ".join(subject_parts)
 
-            await send_email(
-                to=tourist_email,
-                subject=subject,
-                html_body=html_body,
+            # Send email in background
+            asyncio.create_task(
+                send_email(
+                    to=tourist_email,
+                    subject=subject,
+                    html_body=html_body,
+                )
             )
 
             return (
