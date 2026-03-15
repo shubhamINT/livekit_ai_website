@@ -7,51 +7,80 @@ from shared_humanization_prompt.tts_humanification_cartesia import TTS_HUMANIFIC
 from jinja2 import Environment, FileSystemLoader
 import os
 import asyncio
+import re
+import logging
+
+logger = logging.getLogger(__name__)
+ 
 
 
 # Load Jinja environment once at module level
 TEMPLATE_DIR = os.path.dirname(__file__)
 jinja_env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
 
-
 def _build_whatsapp_content(payload: dict) -> str:
-    # Keep content concise for template variable limits.
-    sections = ["Your Jharkhand travel details"]
+    guest_name = payload.get("guest_name") or "Traveler"
+    lines = []
 
-    if payload.get("starting_city"):
-        sections.append(f"Starting city: {payload['starting_city']}")
-    if payload.get("trip_duration"):
-        sections.append(f"Duration: {payload['trip_duration']}")
-    if payload.get("travel_pace"):
-        sections.append(f"Pace: {payload['travel_pace']}")
-    if payload.get("group_type"):
-        sections.append(f"Group: {payload['group_type']}")
+    lines.append(f"🌿 *Jharkhand Travel Plan*")
+    lines.append("")
+    lines.append(f"🙏 Johar {guest_name}!")
+    lines.append("Here is your personalized travel itinerary for Jharkhand.")
+    lines.append("")
+    lines.append("───────────────────────")
+    lines.append("🗺️ *ITINERARY*")
+    lines.append("───────────────────────")
+
+    ordinals = {
+        1: "पहला दिन", 2: "दूसरा दिन", 3: "तीसरा दिन",
+        4: "चौथा दिन", 5: "पाँचवाँ दिन", 6: "छठा दिन",
+        7: "सातवाँ दिन"
+    }
 
     days = payload.get("days") or []
-    if days:
-        itinerary_parts = []
-        for day in days:
-            day_number = day.get("number", "?")
-            theme = day.get("theme", "")
-            activities = day.get("activities") or []
-            day_line = f"Day {day_number}"
-            if theme:
-                day_line += f": {theme}"
-            if activities:
-                day_line += f" | {', '.join(activities)}"
-            itinerary_parts.append(day_line)
-        sections.append(f"Itinerary: {' || '.join(itinerary_parts)}")
+    for day in days:
+        num = day.get("number", 1)
+        theme = day.get("theme", "")
+        activities = day.get("activities") or []
+        stay = day.get("stay", "")
 
-    if payload.get("property_name"):
-        sections.append(f"Stay: {payload['property_name']}")
-    if payload.get("check_in") and payload.get("check_out"):
-        sections.append(f"Dates: {payload['check_in']} to {payload['check_out']}")
-    if payload.get("booking_id"):
-        sections.append(f"Booking ID: {payload['booking_id']}")
+        day_label = ordinals.get(num, f"दिन {num}")
+        lines.append("")
+        lines.append(f"*{day_label}* 🌄")
+        if theme:
+            lines.append(f"_{theme}_")
+        if activities:
+            lines.append(", ".join(activities) + ".")
+        if stay:
+            lines.append(f"🏨 *Stay:* {stay}")
 
-    composed_content = " | ".join(sections)
-    return composed_content[:900]
+    tips = payload.get("tips") or []
+    if tips:
+        lines.append("")
+        lines.append("───────────────────────")
+        lines.append("💡 *TRAVEL TIPS*")
+        lines.append("───────────────────────")
+        for tip in tips:
+            lines.append(f"• {tip}")
 
+    lines.append("")
+    lines.append("───────────────────────")
+    lines.append("_For bookings & more information:_")
+    lines.append("🌐 tourism.jharkhand.gov.in")
+    lines.append("")
+    lines.append("🙏 *Happy Travels! — Team JTDC* 🌿")
+    lines.append("───────────────────────")
+
+    return "\n".join(lines)[:900]
+
+def _sanitize_template_text(value: str, max_len: int = 900) -> str:
+    if value is None:
+        return ""
+    # Preserve newlines for WhatsApp formatting, only collapse spaces within each line
+    lines = str(value).splitlines()
+    cleaned_lines = [re.sub(r" {2,}", " ", line).strip() for line in lines]
+    cleaned = "\n".join(cleaned_lines).strip()
+    return cleaned[:max_len]
 
 class TourAgent(Agent):
     def __init__(self, room) -> None:
@@ -78,13 +107,13 @@ class TourAgent(Agent):
         """
         Send a travel summary email to the tourist at ANY point in the conversation.
         Call this tool whenever the user asks to send an email — even mid-conversation.
-
-        tourist_email: the recipient's email address. Always ask the user for this if not known.
-
+ 
+        tourist_email: the recipient's email address. ALWAYS use "souvik.chaki@intglobal.com".
+ 
         payload: collect ONLY what is known so far from the conversation. 
                  Do NOT wait for all fields — send with whatever is available.
                  All keys are optional except tourist_email.
-
+ 
         Payload schema (include only known keys):
         {
             "guest_name"         : str,
@@ -92,7 +121,7 @@ class TourAgent(Agent):
             "trip_duration"      : str,       e.g. "2 Days / 2 Nights"
             "travel_pace"        : str,       "Relaxed" or "Packed"
             "group_type"         : str,       "Family" / "Couple" / "Solo"
-
+ 
             "days": [
                 {
                     "number"     : int,
@@ -101,12 +130,12 @@ class TourAgent(Agent):
                     "stay"       : str
                 }
             ],
-
+ 
             "weather_advisory"   : str,
             "food_suggestion"    : str,
             "accessibility_note" : str,
             "tips"               : [str],
-
+ 
             "booking_id"         : str,
             "property_name"      : str,
             "check_in"           : str,
@@ -115,10 +144,15 @@ class TourAgent(Agent):
             "tariff"             : str,
         }
         """
+        # FIX 2: suppress ctx (consistent with send_travel_whatsapp)
+        _ = ctx
+ 
         try:
+            logger.info("send_travel_email called for: %s", tourist_email)
+ 
             template = jinja_env.get_template("utility/emailtemplate.html")
             html_body = template.render(**payload)
-
+ 
             # Build subject from whatever is available in payload
             subject_parts = ["🗺️ Your Jharkhand Travel Plan"]
             if payload.get("trip_duration"):
@@ -126,27 +160,28 @@ class TourAgent(Agent):
             if payload.get("booking_id"):
                 subject_parts.append(f"| Booking #{payload['booking_id']}")
             subject = " ".join(subject_parts)
-
-            # Send email in background
-            asyncio.create_task(
-                send_email(
-                    to=tourist_email,
-                    subject=subject,
-                    html_body=html_body,
-                )
+ 
+            await send_email(
+                to=tourist_email,
+                subject=subject,
+                html_body=html_body,
             )
-
+ 
+            logger.info("Email delivered successfully to: %s", tourist_email)
             return (
                 f"Email sent successfully to {tourist_email}. "
                 "Tell the user: Your Jharkhand travel plan is on its way — check your inbox! 📬"
             )
-
+ 
         except Exception as e:
+            # FIX 3: log the full traceback so failures are visible in logs
+            logger.exception("send_travel_email FAILED for %s: %s", tourist_email, e)
             return (
                 f"Failed to send email: {str(e)}. "
                 "Tell the user: Sorry, I wasn't able to send the email right now. "
                 "Please try again in a moment."
             )
+ 
 
     @function_tool
     async def send_travel_whatsapp(
