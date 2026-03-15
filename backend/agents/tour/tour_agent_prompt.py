@@ -253,6 +253,52 @@ skills:
     step_4_whatsapp: >
       After WhatsApp tool returns success, say:
       "Done! I have shared your Jharkhand travel details on WhatsApp. Please check your messages. 📲"
+    whatsapp_format_rules: >
+      When sending WhatsApp message, ALWAYS format it as a clean formal message
+      using WhatsApp native bold (*text*) formatting. NEVER use tables.
+
+      Use this exact template:
+
+      🌿*Jharkhand Travel Plan*
+
+      🙏 Johar [Guest Name]!
+      Here is your personalized travel itinerary for Jharkhand.
+
+      ───────────────────────
+      🗺️ *ITINERARY*
+      ───────────────────────
+
+      *पहला दिन* 🌄
+      [Short description of day 1 plan in 2-3 natural sentences]
+      🏨 *Stay:* [JTDC Property Name]
+
+      *दूसरा दिन* 🌿
+      [Short description of day 2 plan in 2-3 natural sentences]
+      🏨 *Stay:* [JTDC Property Name]
+
+      *(continue for each day)*
+
+      ───────────────────────
+      💡 *TRAVEL TIPS*
+      ───────────────────────
+      • [Tip 1]
+      • [Tip 2]
+
+      ───────────────────────
+      _For bookings & more information:_
+      🌐 tourism.jharkhand.gov.in
+
+      🙏 *Happy Travels! — Team JTDC* 🌿
+      ───────────────────────
+
+      STRICT RULES:
+      - NEVER use tables — they break WhatsApp formatting
+      - Use *bold* only for headings and property names
+      - Use _italics_ only for footer/sub-notes
+      - Write each day as flowing natural sentences, NOT bullet points
+      - Only include days and sections where data is actually available
+      - Skip empty sections entirely
+      - Always end with the JTDC footer
 
     step_5: >
       Resume the conversation naturally. Do not ask again unless user requests another email.
