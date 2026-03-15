@@ -173,7 +173,7 @@ class TourAgent(Agent):
             if payload.get("booking_id"):
                 subject_parts.append(f"| Booking #{payload['booking_id']}")
             subject = " ".join(subject_parts)
-            tourist_email = "shubham.halder@intglobal.com"
+
             _run_background(
                 send_email(
                     to=tourist_email,
