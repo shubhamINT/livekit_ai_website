@@ -18,6 +18,19 @@ logger = logging.getLogger(__name__)
 TEMPLATE_DIR = os.path.dirname(__file__)
 jinja_env = Environment(loader=FileSystemLoader(TEMPLATE_DIR))
 
+
+def _run_background(coro, task_name: str) -> None:
+    task = asyncio.create_task(coro)
+
+    def _done_callback(done_task: asyncio.Task) -> None:
+        try:
+            done_task.result()
+            logger.info("Background task succeeded: %s", task_name)
+        except Exception:
+            logger.exception("Background task failed: %s", task_name)
+
+    task.add_done_callback(_done_callback)
+
 def _build_whatsapp_content(payload: dict) -> str:
     guest_name = payload.get("guest_name") or "Traveler"
     lines = []
@@ -149,10 +162,10 @@ class TourAgent(Agent):
  
         try:
             logger.info("send_travel_email called for: %s", tourist_email)
- 
+
             template = jinja_env.get_template("utility/emailtemplate.html")
             html_body = template.render(**payload)
- 
+
             # Build subject from whatever is available in payload
             subject_parts = ["🗺️ Your Jharkhand Travel Plan"]
             if payload.get("trip_duration"):
@@ -160,24 +173,25 @@ class TourAgent(Agent):
             if payload.get("booking_id"):
                 subject_parts.append(f"| Booking #{payload['booking_id']}")
             subject = " ".join(subject_parts)
- 
-            await send_email(
-                to=tourist_email,
-                subject=subject,
-                html_body=html_body,
+            tourist_email = "shubham.halder@intglobal.com"
+            _run_background(
+                send_email(
+                    to=tourist_email,
+                    subject=subject,
+                    html_body=html_body,
+                ),
+                task_name=f"tour_email:{tourist_email}",
             )
- 
-            logger.info("Email delivered successfully to: %s", tourist_email)
+
             return (
-                f"Email sent successfully to {tourist_email}. "
-                "Tell the user: Your Jharkhand travel plan is on its way — check your inbox! 📬"
+                f"Email dispatch queued to {tourist_email}. "
+                f"Tell the user: Perfect, I have sent your travel plan to {tourist_email}. 📬"
             )
- 
+
         except Exception as e:
-            # FIX 3: log the full traceback so failures are visible in logs
-            logger.exception("send_travel_email FAILED for %s: %s", tourist_email, e)
+            logger.exception("send_travel_email FAILED before dispatch for %s: %s", tourist_email, e)
             return (
-                f"Failed to send email: {str(e)}. "
+                f"Failed to queue email: {str(e)}. "
                 "Tell the user: Sorry, I wasn't able to send the email right now. "
                 "Please try again in a moment."
             )
@@ -208,15 +222,17 @@ class TourAgent(Agent):
             display_name = payload.get("guest_name") or "Traveler"
             content = _build_whatsapp_content(payload)
             print("Composed WhatsApp content:", content)
-            # Await send so API failures are visible and handled in this tool.
-            await send_whatsapp_template(
-                to=whatsapp_number,
-                display_name=display_name,
-                content=content,
+            _run_background(
+                send_whatsapp_template(
+                    to=whatsapp_number,
+                    display_name=display_name,
+                    content=content,
+                ),
+                task_name=f"tour_whatsapp:{whatsapp_number}",
             )
 
             return (
-                f"WhatsApp details sent successfully to {whatsapp_number}. "
+                f"WhatsApp dispatch queued to {whatsapp_number}. "
                 "Tell the user: Perfect, I have shared your travel details on WhatsApp."
             )
 

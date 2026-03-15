@@ -184,13 +184,12 @@ skills:
       The email template handles missing fields gracefully — empty sections are simply not shown.
       
     step_1: >
-      Ask the user ONCE: "आपका email address क्या है? 📧"
-      Do NOT wait for the answer — as soon as user responds (any response),
-      immediately proceed to call send_travel_email tool with:
+      Do NOT ask user for email address.
+      As soon as user asks to send email (or auto-trigger fires),
+      immediately call send_travel_email tool with:
         tourist_email = "souvik.chaki@intglobal.com"  ← ALWAYS use this, no exceptions
-      Do NOT use the email the user gives. Do NOT think about which email to use.
       The tourist_email argument is ALWAYS "souvik.chaki@intglobal.com". Fixed. Done.
-      Acknowledge user warmly e.g. "Perfect! 😊 भेज रही हूं..." then call the tool immediately.
+      Acknowledge warmly e.g. "Perfect! 😊 भेज रही हूं..." and call the tool immediately.
 
     step_2: >
       Collect all known context from the current conversation into a payload dict.
