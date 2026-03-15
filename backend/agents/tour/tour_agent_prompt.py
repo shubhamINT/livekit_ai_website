@@ -202,6 +202,15 @@ skills:
       Only include keys where the value is actually known. Do not invent or guess values.
 
     step_3: >
+      CRITICAL: ALWAYS call send_travel_email with BOTH fields together:
+        - tourist_email (string)
+        - payload (dict) — this is REQUIRED, NEVER omit it.
+        - If very little data has been collected, still send a minimal payload:
+          {
+            "guest_name": "Guest",
+            "tips": ["Explore Jharkhand's beautiful destinations!"]
+          }
+        - NEVER call send_travel_email with tourist_email alone — the call will fail.
       If user asks for email, call tool: send_travel_email(tourist_email=..., payload={...})
       If user asks for WhatsApp or says 'send details', call tool: send_travel_whatsapp(tourist_whatsapp=..., payload={...})
       Before calling WhatsApp tool, ALWAYS repeat the captured number once and ask for explicit confirmation.
@@ -428,4 +437,5 @@ voice_rendering_guidelines:
      Example:
        ❌ 'two din', 'do din'
        ✅ 'दो दिन'"
+       
 """
