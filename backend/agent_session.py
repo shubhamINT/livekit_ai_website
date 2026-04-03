@@ -9,6 +9,7 @@ from livekit.agents import (
     room_io,
     BackgroundAudioPlayer,
     AudioConfig,
+    TurnHandlingOptions,
 )
 from agents.invoice.invoice_agent import InvoiceAgent
 from agents.restaurant.restaurant_agent import RestaurantAgent
@@ -111,6 +112,23 @@ async def vyom_demos(ctx: JobContext):
         tts=tts,
         preemptive_generation=True,
         use_tts_aligned_transcript=True,
+        aec_warmup_duration=0.8, 
+        turn_handling=TurnHandlingOptions(
+                turn_detection="realtime_llm",
+                endpointing={
+                    "mode": "dynamic",
+                    "min_delay": 0.3,
+                    "max_delay": 3.0,
+                },
+                interruption={
+                    "mode": "adaptive",
+                    "min_duration": 0.8,
+                    "min_words": 2,
+                    "discard_audio_if_uninterruptible": True,
+                    "false_interruption_timeout": 2.0,
+                    "resume_false_interruption": True,
+                },
+        )
     )
 
     # --- START SESSION ---
